@@ -636,7 +636,7 @@
     <string name="please_note_that_you_must_prov">独自のサウンドを用意する必要があることに注意してください</string>
     <string name="lw_cc_enable">色調整を有効化</string>
     <string name="enable_apps_btn_summary">Dockを上下にスワイプすることで、いつでもアプリメニューを開閉できます</string>
-    <string name="shell_terminal">Youki シェルターミナル</string>
+    <string name="shell_terminal">DevDex シェルターミナル</string>
     <string name="enter_valid_url">有効なURLを入力してください</string>
     <string name="wallpaper">壁紙</string>
     <string name="perf_zram_current">現在のサイズ</string>
