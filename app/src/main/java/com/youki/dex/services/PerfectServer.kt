@@ -4215,7 +4215,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     /**
      * Restores the phone display settings (resolution/density) back to
-     * their system defaults when YoukiDex is closed or restarted.
+     * their system defaults when DevDex is closed or restarted.
      */
     private fun restorePhoneDisplaySettings() {
         try {
@@ -6491,7 +6491,7 @@ class DockTileService : TileService() {
                 showDialog(
                     android.app.AlertDialog.Builder(this)
                         .setTitle("Notification access required")
-                        .setMessage("YoukiDex needs notification access to work correctly. You will be redirected to enable it.")
+                        .setMessage("DevDex needs notification access to work correctly. You will be redirected to enable it.")
                         .setPositiveButton("OK") { _, _ ->
                             launchActivity(
                                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
@@ -6521,7 +6521,7 @@ class DockTileService : TileService() {
                     showDialog(
                         android.app.AlertDialog.Builder(this)
                             .setTitle("Accessibility service required")
-                            .setMessage("YoukiDex needs the Accessibility service to work. You will be redirected to Settings.")
+                            .setMessage("DevDex needs the Accessibility service to work. You will be redirected to Settings.")
                             .setPositiveButton("OK") { _, _ ->
                                 launchActivity(
                                     Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -6564,7 +6564,7 @@ class DockTileService : TileService() {
             .getDefaultSharedPreferences(applicationContext)
             .getBoolean("dex_mode_active", false)
         tile.state = if (dexActive) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = if (dexActive) "Youki DEX " else "Youki DEX"
+        tile.label = if (dexActive) "DevDex " else "DevDex"
         tile.updateTile()
     }
 }
