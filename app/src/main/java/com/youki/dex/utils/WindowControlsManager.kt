@@ -20,12 +20,12 @@ import android.widget.LinearLayout
 
 /**
  * WindowControlsManager — Windows-style [ – ] [ □ ] [ × ] buttons for every
- * floating (freeform / multi-window) app window.
+ * app window, including fullscreen apps.
  *
  * Why this exists: Android's own freeform caption bar is only drawn by some
- * ROMs / Android 15 desktop mode. On everything else a floating window had
- * no minimize / maximize / close at all. This class draws a small overlay
- * pill at the top-right corner of each app window found through the
+ * ROMs / Android 15 desktop mode. On everything else a window had no
+ * minimize / maximize / close at all. This class draws a compact overlay
+ * pill centered against each app window's top edge using the
  * AccessibilityService window list (flagRetrieveInteractiveWindows is
  * already enabled in accessibility_service.xml).
  *
@@ -86,7 +86,9 @@ class WindowControlsManager(
     fun scheduleUpdate() {
         if (destroyed || pending) return
         pending = true
-        handler.postDelayed(updateRunnable, 120)
+        // Coalesce window-change events to roughly two frames on a 60 Hz
+        // display. 120 ms made the controls visibly trail moving windows.
+        handler.postDelayed(updateRunnable, 40)
     }
 
     fun destroy() {
@@ -142,8 +144,9 @@ class WindowControlsManager(
                     if (b.width() <= 0 || b.height() <= 0) continue
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
-                    // true fullscreen app → no controls
-                    if (b.width() >= dispW && b.height() >= dispH) continue
+                    // Fullscreen apps also get controls, anchored at the
+                    // top center. This uses the same layout in portrait and
+                    // landscape and avoids creating a second special case.
                     var pkg = pkgCache[w.id]
                     if (pkg == null) {
                         val root = w.root
@@ -187,9 +190,12 @@ class WindowControlsManager(
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
                 )
                 val pw = pill.view.measuredWidth
-                val x = (c.bounds.right - pw - dp(6)).coerceIn(0, (dispW - pw).coerceAtLeast(0))
-                // above the window if there is room, otherwise inside its top edge
-                val y = if (c.bounds.top >= pillH + gap) c.bounds.top - pillH - gap else c.bounds.top + dp(4)
+                // Keep one compact control group centered on this window.
+                // Place it on the title-bar/top edge rather than above the
+                // window so it tracks both portrait and landscape geometry.
+                val x = (c.bounds.left + (c.bounds.width() - pw) / 2)
+                    .coerceIn(0, (dispW - pw).coerceAtLeast(0))
+                val y = (c.bounds.top + dp(2)).coerceIn(0, (dispH - pillH).coerceAtLeast(0))
 
                 // hide the pill when a window that is above this one overlaps it
                 val pillRect = Rect(x, y, x + pw, y + pillH)
