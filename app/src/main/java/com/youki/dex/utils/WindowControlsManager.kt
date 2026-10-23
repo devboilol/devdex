@@ -49,7 +49,7 @@ class WindowControlsManager(
     private val dockHeight: () -> Int,
     /** resolves (packageName, nthWindowOfThatPackage) -> taskId or -1 */
     private val taskIdFor: (String, Int) -> Int,
-    private val forceStop: (String) -> Unit,
+    private val forceStop: (String) -> Boolean,
     private val bringToFront: (Int) -> Unit,
     private val io: (() -> Unit) -> Unit
 ) {
@@ -384,8 +384,12 @@ class WindowControlsManager(
         minimized.remove(taskId)
         homeMinimized.remove(taskId)
         io {
-            if (taskId != -1) AppUtils.closeTask(ctx, taskId) else forceStop(pkg)
-            handler.postDelayed({ scheduleUpdate() }, 500)
+            var closed = taskId != -1 && AppUtils.closeTask(ctx, taskId)
+            if (!closed) closed = forceStop(pkg)
+            handler.post {
+                if (!closed) Toast.makeText(ctx, R.string.close_app_privilege_required, Toast.LENGTH_SHORT).show()
+                handler.postDelayed({ scheduleUpdate() }, 350)
+            }
         }
     }
 
