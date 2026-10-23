@@ -422,7 +422,7 @@
     <string name="plugin_font_pick">選擇字體文件</string>
     <string name="play_video">播放視頻</string>
     <string name="delete_user">刪除用户</string>
-    <string name="youki_sounds">DevDex 聲音</string>
+    <string name="devdex_sounds">DevDex 聲音</string>
     <string name="lw_active_badge">活動中</string>
     <string name="plugin_font_none">無自定義字體 — 使用默認字體</string>
     <string name="bluetooth_permission">藍牙</string>
