@@ -822,7 +822,7 @@ object AppUtils {
             // Newer Android versions may only expose package/task pairs in
             // dumpsys ActivityRecord lines, e.g. "pkg/.Activity t123".
             val activityRecordRegex = Regex(
-                """\b\${Regex.escape(packageName)}/[^\s}]+.*?\bt(\d+)\b"""
+                """\b""" + Regex.escape(packageName) + """/[^\s}]+.*?\bt(\d+)\b"""
             )
             output.lineSequence().forEach { line ->
                 activityRecordRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let(ids::add)
@@ -835,7 +835,7 @@ object AppUtils {
             )
             blocks.findAll(output).forEach { match ->
                 val block = match.value
-                if (Regex("""\b\${Regex.escape(packageName)}/""").containsMatchIn(block)) {
+                if (Regex("""\b""" + Regex.escape(packageName) + """/""").containsMatchIn(block)) {
                     Regex("""(?:taskId=|#)(\d+)""").find(block)
                         ?.groupValues?.getOrNull(1)?.toIntOrNull()?.let(ids::add)
                 }
