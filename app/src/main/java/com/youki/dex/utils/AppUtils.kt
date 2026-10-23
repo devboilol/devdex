@@ -710,20 +710,29 @@ object AppUtils {
      * worked; the window controls use this to choose a safe minimize fallback.
      */
     private fun runTaskShellCommand(context: Context, command: String): Boolean {
+        // ActivityManager shell commands can print permission errors while the
+        // shell process itself exits with code 0. Carry the command's actual
+        // exit status through every route instead of treating empty stdout as
+        // success (the old behavior hid failed Close/Resize operations).
+        val wrappedCommand = "$command; __devdex_exit=\\$?; echo __DEVDEX_EXIT_CODE:\\$__devdex_exit"
+
         fun outputLooksSuccessful(output: String?): Boolean {
-            if (output == null) return false
-            return !Regex("(?i)(error:|permission denied|not allowed|unknown command|not found|failed)")
-                .containsMatchIn(output)
+            if (output.isNullOrBlank()) return false
+            val marker = Regex("""__DEVDEX_EXIT_CODE:(\\d+)""").find(output) ?: return false
+            if (marker.groupValues[1] != "0") return false
+            val cleanOutput = output.replace(marker.value, "")
+            return !Regex("(?i)(error(?::|\\b)|permission denied|not allowed|unknown command|not found|failed|securityexception|exception occurred)")
+                .containsMatchIn(cleanOutput)
         }
 
         try {
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", wrappedCommand))
             val finished = process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
             if (finished) {
                 val stderr = process.errorStream.bufferedReader().readText().trim()
                 val stdout = process.inputStream.bufferedReader().readText().trim()
                 if (process.exitValue() == 0 &&
-                    outputLooksSuccessful(stderr) && outputLooksSuccessful(stdout)
+                    outputLooksSuccessful("$stdout\\n$stderr")
                 ) return true
             }
             process.destroyForcibly()
@@ -731,15 +740,17 @@ object AppUtils {
 
         try {
             val shell = com.youki.dex.server.ShellManager
-            if (shell.isAvailable && outputLooksSuccessful(shell.execSync(command))) return true
+            if (shell.isAvailable && outputLooksSuccessful(shell.execSync(wrappedCommand))) return true
         } catch (e: Exception) {}
 
         try {
             val shizuku = ShizukoManager.getInstance(context)
-            if (shizuku.hasPermission && outputLooksSuccessful(shizuku.runShellSync(command))) return true
+            if (shizuku.hasPermission &&
+                outputLooksSuccessful(shizuku.runShellSyncWithStderr(wrappedCommand))
+            ) return true
         } catch (e: Exception) {}
 
-        return outputLooksSuccessful(DeviceUtils.runAsRoot(command))
+        return outputLooksSuccessful(DeviceUtils.runAsRoot(wrappedCommand))
     }
 
     fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int): Boolean {
