@@ -1,0 +1,353 @@
+package com.youki.dex.utils
+
+import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import android.content.SharedPreferences
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import android.view.Gravity
+import android.view.View
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.LinearLayout
+
+/**
+ * WindowControlsManager — Windows-style [ – ] [ □ ] [ × ] buttons for every
+ * floating (freeform / multi-window) app window.
+ *
+ * Why this exists: Android's own freeform caption bar is only drawn by some
+ * ROMs / Android 15 desktop mode. On everything else a floating window had
+ * no minimize / maximize / close at all. This class draws a small overlay
+ * pill at the top-right corner of each app window found through the
+ * AccessibilityService window list (flagRetrieveInteractiveWindows is
+ * already enabled in accessibility_service.xml).
+ *
+ *  • close    → `am task remove <id>` (AppUtils.closeTask); if no task id is
+ *               known the app is force-stopped through the shell instead
+ *  • maximize → AppUtils.resizeTask(..., "maximized") / back to "standard"
+ *  • minimize → the task is moved below the bottom edge of the display (its
+ *               bounds are remembered); clicking its dock icon restores it.
+ *               NOTE: this relies on the ROM accepting off-screen bounds
+ *               from `am task resize` — untested across ROMs.
+ *
+ * Preference "window_controls_enabled" (default true) switches it off live.
+ * Everything is wrapped defensively: a failure here must never take the
+ * dock down.
+ */
+class WindowControlsManager(
+    private val service: AccessibilityService,
+    private val ctx: Context,
+    private val windowManager: WindowManager,
+    private val prefs: SharedPreferences,
+    private val displayId: () -> Int,
+    private val dockHeight: () -> Int,
+    /** resolves (packageName, nthWindowOfThatPackage) -> taskId or -1 */
+    private val taskIdFor: (String, Int) -> Int,
+    private val forceStop: (String) -> Unit,
+    private val bringToFront: (Int) -> Unit,
+    private val io: (() -> Unit) -> Unit
+) {
+
+    private class Pill(
+        val view: LinearLayout,
+        val params: WindowManager.LayoutParams,
+        val maxBtn: IconButton
+    ) {
+        var pkg: String = ""
+        var windowBounds = Rect()
+        var taskId = -1
+        var isMax = false
+        var shownAtX = Int.MIN_VALUE
+        var shownAtY = Int.MIN_VALUE
+    }
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val pills = HashMap<Int, Pill>()
+    private val pkgCache = HashMap<Int, String>()
+    private val minimized = HashMap<Int, Rect>()
+    private var pending = false
+    private var destroyed = false
+
+    private val updateRunnable = Runnable {
+        pending = false
+        if (!destroyed) updateNow()
+    }
+
+    private fun dp(v: Int) = (v * ctx.resources.displayMetrics.density + 0.5f).toInt()
+
+    /** Call on every windows-changed / config-changed event; throttled internally. */
+    fun scheduleUpdate() {
+        if (destroyed || pending) return
+        pending = true
+        handler.postDelayed(updateRunnable, 120)
+    }
+
+    fun destroy() {
+        destroyed = true
+        handler.removeCallbacksAndMessages(null)
+        removeAll()
+        minimized.clear()
+    }
+
+    /** If [taskId] was minimized by this manager, restore it and return true. */
+    fun restoreIfMinimized(taskId: Int): Boolean {
+        val bounds = minimized.remove(taskId) ?: return false
+        io {
+            AppUtils.resizeTaskToBounds(ctx, taskId, bounds)
+            handler.post { bringToFront(taskId); scheduleUpdate() }
+        }
+        return true
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+
+    private fun canDraw(): Boolean = try { Settings.canDrawOverlays(ctx) } catch (e: Exception) { false }
+
+    @Suppress("DEPRECATION")
+    private fun readWindows(): List<AccessibilityWindowInfo> = try {
+        val id = displayId()
+        if (Build.VERSION.SDK_INT >= 30) {
+            service.windowsOnAllDisplays?.get(id) ?: emptyList()
+        } else if (id == 0) {
+            service.windows ?: emptyList()
+        } else emptyList()
+    } catch (e: Exception) { emptyList() }
+
+    private class Cand(val id: Int, val layer: Int, val bounds: Rect, val pkg: String)
+
+    @Suppress("DEPRECATION")
+    private fun updateNow() {
+        if (!prefs.getBoolean("window_controls_enabled", true) || !canDraw()) {
+            removeAll(); return
+        }
+        try {
+            val dm = DeviceUtils.getDisplayMetrics(ctx, displayId())
+            val dispW = dm.widthPixels
+            val dispH = dm.heightPixels
+
+            val cands = ArrayList<Cand>()
+            val seenIds = HashSet<Int>()
+            val windows = readWindows()
+            for (w in windows) {
+                try {
+                    if (w.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+                    val b = Rect(); w.getBoundsInScreen(b)
+                    if (b.width() <= 0 || b.height() <= 0) continue
+                    // completely off-screen (minimized) → no controls
+                    if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
+                    // true fullscreen app → no controls
+                    if (b.width() >= dispW && b.height() >= dispH) continue
+                    var pkg = pkgCache[w.id]
+                    if (pkg == null) {
+                        val root = w.root
+                        pkg = root?.packageName?.toString()
+                        try { root?.recycle() } catch (e: Exception) {}
+                        if (pkg != null) pkgCache[w.id] = pkg
+                    }
+                    if (pkg.isNullOrEmpty() || pkg == ctx.packageName) continue
+                    cands.add(Cand(w.id, w.layer, b, pkg))
+                    seenIds.add(w.id)
+                } finally {
+                    try { w.recycle() } catch (e: Exception) {}
+                }
+            }
+            pkgCache.keys.retainAll(seenIds)
+
+            // per-package index → so two windows of one app map to two tasks
+            val perPkgCount = HashMap<String, Int>()
+            val sorted = cands.sortedByDescending { it.layer }   // top-most first (matches recent-task order)
+            val pillH = dp(30)
+            val gap = dp(2)
+
+            val alive = HashSet<Int>()
+            for (c in sorted) {
+                val idx = perPkgCount.getOrDefault(c.pkg, 0)
+                perPkgCount[c.pkg] = idx + 1
+
+                val pill = pills.getOrPut(c.id) { createPill() }
+                alive.add(c.id)
+                pill.pkg = c.pkg
+                pill.windowBounds = Rect(c.bounds)
+                pill.taskId = taskIdFor(c.pkg, idx)
+                val statusish = DeviceUtils.getStatusBarHeight(ctx)
+                pill.isMax = c.bounds.width() >= dispW - dp(8) &&
+                    c.bounds.top <= statusish + dp(8) &&
+                    c.bounds.height() >= dispH - dockHeight() - statusish - dp(24)
+                pill.maxBtn.kind = if (pill.isMax) IconButton.RESTORE else IconButton.MAXIMIZE
+
+                pill.view.measure(
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                )
+                val pw = pill.view.measuredWidth
+                val x = (c.bounds.right - pw - dp(6)).coerceIn(0, (dispW - pw).coerceAtLeast(0))
+                // above the window if there is room, otherwise inside its top edge
+                val y = if (c.bounds.top >= pillH + gap) c.bounds.top - pillH - gap else c.bounds.top + dp(4)
+
+                // hide the pill when a window that is above this one overlaps it
+                val pillRect = Rect(x, y, x + pw, y + pillH)
+                val covered = sorted.any { o -> o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect) }
+
+                pill.view.visibility = if (covered) View.GONE else View.VISIBLE
+                pill.params.x = x
+                pill.params.y = y
+                if (pill.view.windowToken == null) {
+                    safeAdd(pill)
+                } else if (pill.shownAtX != x || pill.shownAtY != y) {
+                    try { windowManager.updateViewLayout(pill.view, pill.params) } catch (e: Exception) {}
+                }
+                pill.shownAtX = x; pill.shownAtY = y
+                pill.maxBtn.invalidate()
+            }
+
+            // drop pills of windows that are gone
+            val iter = pills.entries.iterator()
+            while (iter.hasNext()) {
+                val e = iter.next()
+                if (e.key !in alive) { safeRemove(e.value); iter.remove() }
+            }
+            // forget minimized tasks that no longer exist anywhere is not possible
+            // without a task list here — they are cleared when restored/closed.
+        } catch (e: Exception) {
+            // never let window-decoration problems crash the dock
+        }
+    }
+
+    private fun removeAll() {
+        pills.values.forEach { safeRemove(it) }
+        pills.clear()
+    }
+
+    private fun safeAdd(p: Pill) {
+        if (!canDraw()) return
+        try { windowManager.addView(p.view, p.params) } catch (e: Exception) {}
+    }
+
+    private fun safeRemove(p: Pill) {
+        try { if (p.view.windowToken != null) windowManager.removeView(p.view) } catch (e: Exception) {}
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+
+    private fun createPill(): Pill {
+        val row = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#E6202124"))
+                cornerRadius = dp(15).toFloat()
+            }
+            setPadding(dp(4), 0, dp(4), 0)
+        }
+        val btnW = dp(34)
+        val btnH = dp(30)
+        val min = IconButton(ctx, IconButton.MINIMIZE)
+        val max = IconButton(ctx, IconButton.MAXIMIZE)
+        val close = IconButton(ctx, IconButton.CLOSE)
+        row.addView(min, LinearLayout.LayoutParams(btnW, btnH))
+        row.addView(max, LinearLayout.LayoutParams(btnW, btnH))
+        row.addView(close, LinearLayout.LayoutParams(btnW, btnH))
+
+        val type = if (DeviceUtils.isPureHarmonyOS()) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            android.graphics.PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+
+        val pill = Pill(row, lp, max)
+
+        min.setOnClickListener { onMinimize(pill) }
+        max.setOnClickListener { onMaximize(pill) }
+        close.setOnClickListener { onClose(pill) }
+        return pill
+    }
+
+    private fun onClose(p: Pill) {
+        val taskId = p.taskId
+        val pkg = p.pkg
+        minimized.remove(taskId)
+        io {
+            if (taskId != -1) AppUtils.closeTask(ctx, taskId) else forceStop(pkg)
+            handler.postDelayed({ scheduleUpdate() }, 500)
+        }
+    }
+
+    private fun onMaximize(p: Pill) {
+        val taskId = p.taskId
+        if (taskId == -1) return
+        val mode = if (p.isMax) "standard" else "maximized"
+        val dh = dockHeight()
+        io {
+            AppUtils.resizeTask(ctx, mode, taskId, dh)
+            handler.postDelayed({ scheduleUpdate() }, 500)
+        }
+    }
+
+    private fun onMinimize(p: Pill) {
+        val taskId = p.taskId
+        if (taskId == -1) return
+        val b = Rect(p.windowBounds)
+        val dm = DeviceUtils.getDisplayMetrics(ctx, displayId())
+        minimized[taskId] = Rect(b)
+        // park the window just below the bottom edge, keeping its size
+        val parked = Rect(b.left, dm.heightPixels + dp(8), b.right, dm.heightPixels + dp(8) + b.height())
+        io {
+            AppUtils.resizeTaskToBounds(ctx, taskId, parked)
+            handler.postDelayed({ scheduleUpdate() }, 500)
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+
+    /** Small canvas-drawn icon button — no drawable resources needed. */
+    private class IconButton(context: Context, var kind: Int) : View(context) {
+        companion object { const val MINIMIZE = 0; const val MAXIMIZE = 1; const val RESTORE = 2; const val CLOSE = 3 }
+
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = context.resources.displayMetrics.density * 1.6f
+            strokeCap = Paint.Cap.ROUND
+        }
+
+        init { isClickable = true; isFocusable = false }
+
+        override fun onDraw(canvas: Canvas) {
+            val cx = width / 2f
+            val cy = height / 2f
+            val s = context.resources.displayMetrics.density * 5f
+            paint.color = if (kind == CLOSE && isPressed) Color.parseColor("#FF6B6B") else Color.WHITE
+            when (kind) {
+                MINIMIZE -> canvas.drawLine(cx - s, cy + s * 0.6f, cx + s, cy + s * 0.6f, paint)
+                MAXIMIZE -> canvas.drawRect(cx - s, cy - s, cx + s, cy + s, paint)
+                RESTORE -> {
+                    canvas.drawRect(cx - s, cy - s * 0.4f, cx + s * 0.4f, cy + s, paint)
+                    canvas.drawLine(cx - s * 0.4f, cy - s * 0.4f, cx - s * 0.4f, cy - s, paint)
+                    canvas.drawLine(cx - s * 0.4f, cy - s, cx + s, cy - s, paint)
+                    canvas.drawLine(cx + s, cy - s, cx + s, cy + s * 0.4f, paint)
+                    canvas.drawLine(cx + s, cy + s * 0.4f, cx + s * 0.4f, cy + s * 0.4f, paint)
+                }
+                else -> {
+                    canvas.drawLine(cx - s, cy - s, cx + s, cy + s, paint)
+                    canvas.drawLine(cx - s, cy + s, cx + s, cy - s, paint)
+                }
+            }
+        }
+
+        override fun setPressed(pressed: Boolean) { super.setPressed(pressed); invalidate() }
+    }
+}
