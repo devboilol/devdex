@@ -783,33 +783,9 @@ object AppUtils {
      * SecurityException fix for the same reasoning around
      * setLaunchDisplayId, in PerfectServer.launchApp).
      */
-    fun closeTask(context: Context, taskId: Int) {
-        if (taskId < 0) return
-        val cmd = "am task remove $taskId"
-
-        try {
-            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-            p.waitFor()
-            if (p.exitValue() == 0) return
-        } catch (e: Exception) {}
-
-        try {
-            val shell = com.youki.dex.server.ShellManager
-            if (shell.isAvailable) {
-                shell.execSync(cmd)
-                return
-            }
-        } catch (e: Exception) {}
-
-        try {
-            val shizuku = ShizukoManager.getInstance(context)
-            if (shizuku.hasPermission) {
-                shizuku.runShellSync(cmd)
-                return
-            }
-        } catch (e: Exception) {}
-
-        DeviceUtils.runAsRoot(cmd)
+    fun closeTask(context: Context, taskId: Int): Boolean {
+        if (taskId < 0) return false
+        return runTaskShellCommand(context, "am task remove $taskId")
     }
 
     private fun execShizukuSync(shizuku: ShizukoManager, cmd: String) {
