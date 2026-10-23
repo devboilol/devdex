@@ -1,7 +1,7 @@
 <resources>
 
     <!-- General -->
-    <string name="app_name">Youki DEX</string>
+    <string name="app_name">DevDex</string>
     <string name="none">Keine</string>
     <string name="move">Bewegen</string>
     <string name="ok">OK</string>
