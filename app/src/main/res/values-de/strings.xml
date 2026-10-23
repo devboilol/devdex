@@ -793,7 +793,7 @@ Zum Deinstallieren zuerst die Geräteverwaltungsberechtigung entfernen.</string>
     <string name="lw_orientation_landscape">Querformat-Einstellungen — getrennt vom Hochformat</string>
     <string name="lw_add_video">Video hinzufügen</string>
     <string name="delete_source_confirm_title">%1$s löschen?</string>
-    <string name="shell_terminal">Youki Shell-Terminal</string>
+    <string name="shell_terminal">DevDex Shell-Terminal</string>
     <string name="tweak_amoled_desc">Farbqualität verbessern und HDR für das Display aktivieren</string>
 
     <string name="cannot_access_file_path">Zugriff auf Dateipfad nicht möglich</string>
