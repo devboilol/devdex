@@ -719,11 +719,13 @@ object AppUtils {
         try {
             val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
             val finished = process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
-            val stderr = process.errorStream.bufferedReader().readText().trim()
-            val stdout = process.inputStream.bufferedReader().readText().trim()
-            if (finished && process.exitValue() == 0 &&
-                outputLooksSuccessful(stderr) && outputLooksSuccessful(stdout)
-            ) return true
+            if (finished) {
+                val stderr = process.errorStream.bufferedReader().readText().trim()
+                val stdout = process.inputStream.bufferedReader().readText().trim()
+                if (process.exitValue() == 0 &&
+                    outputLooksSuccessful(stderr) && outputLooksSuccessful(stdout)
+                ) return true
+            }
             process.destroyForcibly()
         } catch (e: Exception) {}
 
