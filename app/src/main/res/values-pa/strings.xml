@@ -373,7 +373,7 @@
     <string name="perf_thermal_desc">CPU ਪ੍ਰਦਰਸ਼ਨ ਅਤੇ ਪਾਵਰ ਕੰਟਰੋਲ ਕਰੋ</string>
     <string name="tweak_hardcore_title">HardCoreGT – ਥਰਮਲ ਅਤੇ FPS ਅਨਲੌਕਰ</string>
     <string name="lw_flip_h">ਖਿਤਿਜੀ ਪਲਟੋ</string>
-    <string name="youki_sounds">DevDex ਆਵਾਜ਼ਾਂ</string>
+    <string name="devdex_sounds">DevDex ਆਵਾਜ਼ਾਂ</string>
     <string name="name_is_empty_short">ਨਾਮ ਖਾਲੀ ਹੈ</string>
     <string name="delete_file">ਫਾਈਲ ਹਟਾਓ</string>
     <string name="min_value_1hz">ਘੱਟੋ-ਘੱਟ ਮਨਜ਼ੂਰ ਮੁੱਲ 1 Hz ਹੈ</string>
