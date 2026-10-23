@@ -396,6 +396,35 @@ class ShizukoManager private constructor(private val context: Context) {
     }
 
     /**
+     * Blocking shell call that preserves stderr as well as stdout. Task/window
+     * operations need this because Android often reports permission failures
+     * on stderr while stdout is empty. Call only from a background thread.
+     */
+    fun runShellSyncWithStderr(cmd: String): String? {
+        if (!hasPermission) return null
+        return try {
+            val process = newProcess(cmd)
+            var errorOutput = ""
+            val stderr = Thread {
+                runCatching { errorOutput = process.errorStream.bufferedReader().readText().trim() }
+            }
+            stderr.start()
+            val stdout = process.inputStream.bufferedReader().readText().trim()
+            stderr.join(1000)
+            runCatching { process.destroy() }
+            buildString {
+                if (stdout.isNotBlank()) append(stdout)
+                if (errorOutput.isNotBlank()) {
+                    if (isNotEmpty()) append("\n")
+                    append(errorOutput)
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
      * Diagnostics — same approach (no waitFor/exitValue) but shows stdout/stderr/exception
      * instead of silently swallowing the error. Used only from the "Diagnostics" screen.
      */
