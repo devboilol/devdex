@@ -464,7 +464,7 @@
     <string name="prop_type">Tipo</string>
     <string name="plugin_font_reset">Quitar fuente</string>
     <string name="default_launcher">Establecer como launcher predeterminado</string>
-    <string name="shell_terminal">Terminal Shell de Youki</string>
+    <string name="shell_terminal">Terminal Shell de DevDex</string>
     <string name="fps_reset">La tasa de fotogramas se ha restablecido</string>
     <string name="n_users_on_device">%1$d usuarios en este dispositivo</string>
     <string name="tweak_c2d_desc">Aumentar el rendimiento de la GPU y mejorar la velocidad gráfica</string>
