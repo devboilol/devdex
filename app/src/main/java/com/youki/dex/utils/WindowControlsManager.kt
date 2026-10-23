@@ -193,6 +193,8 @@ class WindowControlsManager(
 
             // per-package index → so two windows of one app map to two tasks
             val perPkgCount = HashMap<String, Int>()
+            val seenTaskIds = HashSet<Int>()
+            val seenUnresolvedPackages = HashSet<String>()
             val sorted = cands.sortedByDescending { it.layer }   // top-most first (matches recent-task order)
             val pillH = dp(30)
             val gap = dp(2)
@@ -201,12 +203,23 @@ class WindowControlsManager(
             for (c in sorted) {
                 val idx = perPkgCount.getOrDefault(c.pkg, 0)
                 perPkgCount[c.pkg] = idx + 1
+                val taskId = taskIdFor(c.pkg, idx)
+
+                // Dialogs/popups can appear as extra TYPE_APPLICATION windows
+                // for the same task. Only one control group should be drawn
+                // for each real task; if the task ID is inaccessible, show
+                // one group per package rather than duplicating Close buttons.
+                if (taskId != -1) {
+                    if (!seenTaskIds.add(taskId)) continue
+                } else {
+                    if (!seenUnresolvedPackages.add(c.pkg)) continue
+                }
 
                 val pill = pills.getOrPut(c.id) { createPill() }
                 alive.add(c.id)
                 pill.pkg = c.pkg
                 pill.windowBounds = Rect(c.bounds)
-                pill.taskId = taskIdFor(c.pkg, idx)
+                pill.taskId = taskId
                 val statusish = DeviceUtils.getStatusBarHeight(ctx)
                 pill.isMax = c.bounds.width() >= dispW - dp(8) &&
                     c.bounds.top <= statusish + dp(8) &&
