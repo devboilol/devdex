@@ -762,7 +762,7 @@
     <string name="dock_background_opacity">ਡੌਕ ਬੈਕਗਰਾਊਂਡ ਧੁੰਦਲਾਪਨ</string>
     <string name="lw_editor_title">ਵਾਲਪੇਪਰ ਸੰਪਾਦਿਤ ਕਰੋ</string>
     <string name="extract_here">ਇੱਥੇ ਕੱਢੋ</string>
-    <string name="shell_terminal">Youki ਸ਼ੈੱਲ ਟਰਮੀਨਲ</string>
+    <string name="shell_terminal">DevDex ਸ਼ੈੱਲ ਟਰਮੀਨਲ</string>
     <string name="lw_apply">ਲਾਗੂ ਕਰੋ</string>
     <string name="vp_aspect_fit">ਸਕ੍ਰੀਨ ਫਿੱਟ ਕਰੋ</string>
     <string name="bottom">ਹੇਠਾਂ</string>
