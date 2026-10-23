@@ -2924,9 +2924,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 serviceScope.launch(Dispatchers.IO) {
                     val stopped = forceStopPackage(targetPackage)
                     withContext(Dispatchers.Main) {
-                        if (!stopped) {
-                            Toast.makeText(context, R.string.close_app_privilege_required, Toast.LENGTH_SHORT).show()
-                        }
+                        if (stopped) launchedAppFallback.remove(targetPackage)
+                        else Toast.makeText(context, R.string.close_app_privilege_required, Toast.LENGTH_SHORT).show()
                         dockHandler.postDelayed({ updateRunningTasks(true) }, 400)
                     }
                 }
