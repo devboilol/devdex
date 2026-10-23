@@ -231,6 +231,7 @@
     <string name="close_window">Đóng cửa sổ</string>
     <string name="close_app">Đóng ứng dụng</string>
     <string name="close_app_privilege_required">Không thể đóng ứng dụng. Hãy cấp quyền Shizuku hoặc Root trên thiết bị.</string>
+    <string name="window_control_privilege_required">Thiết bị đã chặn thao tác cửa sổ. Hãy cấp quyền Shizuku/Root hoặc dùng nút điều khiển gốc của hệ thống.</string>
     <string name="window_resize_failed">Thiết bị không thể thay đổi kích thước cửa sổ. Hãy dùng nút điều khiển gốc hoặc cấp quyền Shizuku/Root.</string>
     <string name="close">Đóng</string>
     <string name="desktop_mode">Chế độ desktop</string>
