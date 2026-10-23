@@ -2,6 +2,12 @@
 
     <!-- General -->
     <string name="app_name">DevDex</string>
+    <string name="language_category">Language</string>
+    <string name="app_language_title">App language</string>
+    <string name="app_language_summary">Choose the language used in DevDex</string>
+    <string name="language_system_default">System default</string>
+    <string name="language_english">English</string>
+    <string name="language_vietnamese">Tiếng Việt</string>
     <string name="multi_user">Users</string>
     <string name="none">None</string>
     <string name="move">Move</string>
