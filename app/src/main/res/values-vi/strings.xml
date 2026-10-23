@@ -228,6 +228,7 @@
     <string name="qa_log_saved_to">Nhật ký đã lưu tại %1$s</string>
     <string name="close_window">Đóng cửa sổ</string>
     <string name="close_app">Đóng ứng dụng</string>
+    <string name="window_resize_failed">Thiết bị không thể thay đổi kích thước cửa sổ. Hãy dùng nút điều khiển gốc hoặc cấp quyền Shizuku/Root.</string>
     <string name="close">Đóng</string>
     <string name="desktop_mode">Chế độ desktop</string>
 
