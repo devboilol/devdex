@@ -58,9 +58,9 @@
     </PreferenceCategory>
 
     <!-- ══════════════════════════════════════════════
-         أصوات YoukiDex المخصصة  (تُشغَّل بالـ MediaPlayer)
+         أصوات DevDex المخصصة  (تُشغَّل بالـ MediaPlayer)
     ══════════════════════════════════════════════ -->
-    <PreferenceCategory android:title="@string/youki_sounds">
+    <PreferenceCategory android:title="@string/devdex_sounds">
 
         <com.youki.dex.preferences.SoundFilePreference
             android:key="startup_sound"
