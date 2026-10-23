@@ -2871,6 +2871,28 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 updateRunningTasks()
             removePopup(view)
         }
+
+        // "Close app" ends the whole app session, unlike dismissing this
+        // menu or returning Home (both of which leave the app available).
+        // Only expose it for taskbar/running-app entries; pinned shortcuts
+        // continue to offer Pin/Unpin without an irrelevant close action.
+        val closeAppRow = view.findViewById<LinearLayout>(R.id.pin_entry_close_app)
+        if (dockApp != null) {
+            closeAppRow.visibility = View.VISIBLE
+            closeAppRow.findViewById<ImageView>(android.R.id.icon)?.let {
+                ColorUtils.applySecondaryColor(context, sharedPreferences, it)
+            }
+            closeAppRow.setOnClickListener {
+                removePopup(view)
+                val targetPackage = app.packageName
+                serviceScope.launch(Dispatchers.IO) {
+                    forceStopPackage(targetPackage)
+                    withContext(Dispatchers.Main) {
+                        dockHandler.postDelayed({ updateRunningTasks(true) }, 400)
+                    }
+                }
+            }
+        }
         addPopup(view, layoutParams)
     }
 
