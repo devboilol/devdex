@@ -288,7 +288,7 @@
     <string name="these_settings_are_intended_fo">これらの設定は上級ユーザー向けです。何をしているか理解している場合のみ変更してください</string>
     <string name="lw_flip_v">垂直反転</string>
     <string name="tweak_battery_desc">電力消費を改善し、充電を高速化します</string>
-    <string name="youki_sounds">DevDexサウンド</string>
+    <string name="devdex_sounds">DevDexサウンド</string>
     <string name="lw_bg_color">背景色</string>
     <string name="enter_valid_number">有効な数値を入力してください</string>
     <string name="app_assistant_title">アシスタント</string>
