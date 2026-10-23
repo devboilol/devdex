@@ -293,7 +293,7 @@
     <string name="manage_external_storage">Tüm dosyalara erişim</string>
     <string name="install">Yükle</string>
     <string name="storage_desc">Menü simgesini ve etkinlik seslerini değiştirmek için kullanılır</string>
-    <string name="shell_terminal">Youki Kabuk Terminali</string>
+    <string name="shell_terminal">DevDex Kabuk Terminali</string>
     <string name="copied_to_clipboard">Panoya kopyalandı</string>
     <string name="silence_current_title">Mevcut uygulama için sessize al</string>
     <string name="secure_settings">Güvenli ayarlar</string>
