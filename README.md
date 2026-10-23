@@ -38,13 +38,9 @@ DevDex is an independent continuation of an Android desktop launcher. This fork 
 ---
 
 <p align="center">
-  <a href="https://discord.gg/mKkaMxd5M2">
-    <img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord"/>
+  <a href="https://github.com/devboilol/devdex/issues">
+    <img src="https://img.shields.io/badge/Support-GitHub%20Issues-238636?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug or request a feature"/>
   </a>
-</p>
-
-<p align="center">
-  <i>btw. Beta updates, beta source code, drama, and 3 AM debates about app icons all move faster on the Discord server — GitHub Issues is where bugs go to nap.</i>
 </p>
 
 ---
@@ -241,10 +237,6 @@ Independent, one-person project. Not affiliated with or endorsed by anyone.
 
 ## Credits
 
-Started from **Smart Dock**, but it's been rebuilt from the ground up since then — new package, new architecture, a native engine that didn't exist before. Not much of the original is left besides the initial idea.
+DevDex is an independent continuation of an open-source Android desktop launcher. Original copyright notices and license terms are preserved; see [LICENSE](LICENSE).
 
-Thanks to the open-source Android community for the tools and libraries this leans on.
-
----
-
-<p align="center">Made by <a href="https://github.com/mrYouki">mrYouki</a></p>
+Thanks to the open-source Android community for the tools and libraries this project builds on.
