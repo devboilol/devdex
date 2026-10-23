@@ -508,7 +508,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 launchedAppFallback[pkg] = fallback
                 val limit = maxOf(1, if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape)
                 while (launchedAppFallback.size > limit) {
-                    launchedAppFallback.remove(launchedAppFallback.keys.firstOrNull())
+                    launchedAppFallback.remove(launchedAppFallback.keys.first())
                 }
                 if (::tasksGv.isInitialized) updateRunningTasks(true)
             }
