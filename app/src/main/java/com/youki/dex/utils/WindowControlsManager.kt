@@ -394,7 +394,6 @@ class WindowControlsManager(
 
     private fun onClose(p: Pill) {
         val taskId = p.taskId
-        val pkg = p.pkg
         minimized.remove(taskId)
         homeMinimized.remove(taskId)
         io {
