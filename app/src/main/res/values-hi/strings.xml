@@ -501,7 +501,7 @@
     <string name="no_files_found">कोई फ़ाइल नहीं मिली</string>
     <string name="tweak_connectivity_title">तेज़ कनेक्टिविटी मोड</string>
     <string name="compressed_prefix">संपीड़ित</string>
-    <string name="shell_terminal">Youki शेल टर्मिनल</string>
+    <string name="shell_terminal">DevDex शेल टर्मिनल</string>
     <string name="hot_corners_delay_title">सक्रियण विलंब (मिलीसेकंड में)</string>
     <string name="enable_soft_reboot_summary">सिस्टम थोड़े समय के लिए अनुत्तरदायी हो सकता है</string>
     <string name="all_contents_will_be_deleted">सारी सामग्री हटा दी जाएगी!</string>
