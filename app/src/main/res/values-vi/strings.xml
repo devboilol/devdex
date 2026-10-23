@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Trình khởi chạy desktop cho Android</string>
     <string name="language_category">Ngôn ngữ</string>
     <string name="app_language_title">Ngôn ngữ ứng dụng</string>
     <string name="app_language_summary">Chọn ngôn ngữ hiển thị trong DevDex</string>
