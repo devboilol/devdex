@@ -159,9 +159,12 @@ class WindowControlsManager(
                             if (pkg != null) pkgCache[w.id] = pkg
                         }
                         if (root != null && !nativeCaptionCache.containsKey(w.id)) {
+                            // hasNativeCaptionControls() owns and recycles the
+                            // root node together with the child nodes it visits.
                             nativeCaptionCache[w.id] = hasNativeCaptionControls(root)
+                        } else {
+                            try { root?.recycle() } catch (e: Exception) {}
                         }
-                        try { root?.recycle() } catch (e: Exception) {}
                     }
                     if (pkg.isNullOrEmpty() || pkg == ctx.packageName) continue
                     seenIds.add(w.id)
