@@ -362,7 +362,7 @@
     <string name="all_contents_will_be_deleted">Tutti i contenuti verranno eliminati!</string>
     <string name="recent_apps">App recenti</string>
     <string name="sound_applied">Suono applicato ✓</string>
-    <string name="youki_sounds">Suoni DevDex</string>
+    <string name="devdex_sounds">Suoni DevDex</string>
     <string name="dock_layout">Layout del Dock</string>
     <string name="enable_f10_title">F10 per attivare/disattivare lo schermo diviso</string>
     <string name="notifications_already_granted">Notifiche già concesse</string>
