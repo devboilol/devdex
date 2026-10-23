@@ -665,7 +665,7 @@
     <string name="prop_readable">읽기 가능</string>
     <string name="lets_start">시작해 봅시다</string>
     <string name="app_rec_title">화면 녹화</string>
-    <string name="youki_sounds">DevDex 소리</string>
+    <string name="devdex_sounds">DevDex 소리</string>
     <string name="write_system_settings_desc">런처에서 화면 밝기 및 미디어 볼륨과 같은 시스템 수준 설정을 변경합니다.</string>
     <string name="enable_notif_panel_title">알림 패널</string>
     <string name="backup_restore">백업 및 복원</string>
