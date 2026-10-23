@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Youki DEX</string>
+    <string name="app_name">DevDex</string>
     <string name="ok">OK</string>
     <string name="cancel">キャンセル</string>
     <string name="enable">有効</string>
