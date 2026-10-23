@@ -8,10 +8,10 @@
     android:padding="32dp">
 
     <com.google.android.material.imageview.ShapeableImageView
-        android:layout_width="240dp"
-        android:layout_height="135dp"
-        android:src="@mipmap/ic_youki"
-        android:scaleType="centerCrop"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:src="@mipmap/ic_launcher"
+        android:scaleType="centerInside"
         app:shapeAppearanceOverlay="@style/RoundedCorner16"
         android:contentDescription="@string/app_name" />
 
