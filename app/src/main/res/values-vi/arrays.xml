@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="drawer_grid_preset_entries">
+        <item>3 × 3 (mặc định)</item>
+        <item>4 × 4</item>
+        <item>4 × 9</item>
+        <item>5 × 5</item>
+        <item>6 × 5</item>
+    </string-array>
+
+    <string-array name="desktop_grid_preset_entries">
+        <item>4 × 6</item>
+        <item>5 × 7 (mặc định)</item>
+        <item>6 × 8</item>
+        <item>4 × 8</item>
+    </string-array>
+
+    <string-array name="widget_corner_style_entries">
+        <item>Bo tròn</item>
+        <item>Góc vuông</item>
+    </string-array>
+
+    <string-array name="editor_preview_aspect_entries">
+        <item>16:9 (Mặc định)</item>
+        <item>Tự động (theo màn hình)</item>
+        <item>4:3</item>
+        <item>9:16 (Video dọc)</item>
+    </string-array>
+
+    <string-array name="sort_options">
+        <item>Tên (A→Z)</item>
+        <item>Tên (Z→A)</item>
+        <item>Dung lượng (nhỏ nhất)</item>
+        <item>Dung lượng (lớn nhất)</item>
+        <item>Ngày (mới nhất)</item>
+        <item>Ngày (cũ nhất)</item>
+    </string-array>
+</resources>
