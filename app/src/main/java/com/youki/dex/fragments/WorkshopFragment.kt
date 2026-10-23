@@ -59,7 +59,8 @@ class WorkshopFragment : Fragment() {
                 .build()
         }
 
-        private const val DOWNLOADS_ROOT    = "YoukiDex"
+        private const val DOWNLOADS_ROOT    = "DevDex"
+        private const val LEGACY_DOWNLOADS_ROOT = "YoukiDex"
         private const val WALLPAPERS_FOLDER = "Wallpapers"
         private const val FONTS_FOLDER      = "Fonts"
         // 20s covers real slow-network cases without leaving a hung page
@@ -875,7 +876,7 @@ class WorkshopFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             val result: File? = withContext(Dispatchers.IO) {
-                val tempFile = File(destDir, "youkidex_tmp_${System.currentTimeMillis()}")
+                val tempFile = File(destDir, "devdex_tmp_${System.currentTimeMillis()}")
                 try {
                     val referer = pageUrl.ifBlank {
                         runCatching {
@@ -1046,18 +1047,17 @@ class WorkshopFragment : Fragment() {
         menuButton.visibility   = View.VISIBLE
         menuButton.setProgress(if (isGridLayout) 1f else 0f, animate = false)
 
-        // ── Read the downloads folder: Downloads/YoukiDex/ ─────────────────────
-        val files = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            DOWNLOADS_ROOT
-        ).let { root ->
-            if (root.exists())
-                root.walkTopDown()
-                    .filter { it.isFile }
-                    .sortedByDescending { it.lastModified() }
-                    .toList()
-            else emptyList()
-        }
+        // New downloads use Downloads/DevDex/. Continue showing files from
+        // the old folder as a compatibility fallback so upgrades don't hide
+        // assets that users already downloaded.
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val files = listOf(
+            File(downloadsDir, DOWNLOADS_ROOT),
+            File(downloadsDir, LEGACY_DOWNLOADS_ROOT)
+        ).filter { it.exists() }
+            .flatMap { root -> root.walkTopDown().filter { it.isFile }.toList() }
+            .distinctBy { it.absolutePath }
+            .sortedByDescending { it.lastModified() }
 
         if (files.isEmpty()) {
             swipeRefresh.visibility = View.GONE
