@@ -598,7 +598,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="tweak_section">Performance tweaks</string>
     <string name="tweak_section_root">Requires Root</string>
 
-    <!-- ═══ Youki Live Wallpaper Engine (rebuilt) ═══ -->
+    <!-- ═══ DevDex Live Wallpaper Engine (rebuilt) ═══ -->
     <string name="lw_section_title">Live Wallpaper</string>
     <string name="lw_service_label">DevDex Live Wallpaper</string>
     <string name="lw_service_description">Animated video wallpapers with free transform, color tuning, and performance controls.</string>
