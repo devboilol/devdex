@@ -723,7 +723,7 @@
     <string name="path_copied">Caminho copiado</string>
     <string name="name_is_empty_short">O nome está vazio</string>
     <string name="frame_rate">Taxa de quadros</string>
-    <string name="shell_terminal">Terminal Shell Youki</string>
+    <string name="shell_terminal">Terminal Shell DevDex</string>
     <string name="vp_copy_path">Copiar caminho</string>
     <string name="extracted_to">Extraído para: %1$s</string>
     <string name="behaviour">Comportamento</string>
