@@ -467,7 +467,7 @@
     <string name="enable_corner_top_right_title">ऊपरी दायां कोना</string>
     <string name="long_press_action">लंबे प्रेस की क्रिया</string>
     <string name="toggle_split_screen">स्प्लिट स्क्रीन टॉगल करें</string>
-    <string name="youki_sounds">DevDex ध्वनियाँ</string>
+    <string name="devdex_sounds">DevDex ध्वनियाँ</string>
     <string name="icon_blacklist_summary">स्टेटस बार से छिपाने के लिए आइकन</string>
     <string name="backup_restore">बैकअप और पुनर्स्थापना</string>
     <string name="grant">अनुमति दें</string>
