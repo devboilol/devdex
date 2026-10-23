@@ -2807,7 +2807,6 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 } else if (action.text == getString(R.string.close_window) && dockApp != null && dockApp.tasks.isNotEmpty()) {
                     removePopup(view)
                     val taskId = dockApp.tasks[0].id
-                    val closePkg = dockApp.packageName
                     // same ShellManager → Shizuku → root chain as every other close path
                     // (this one used to skip Shizuku entirely and then did nothing)
                     windowControls?.restoreIfMinimized(taskId)
