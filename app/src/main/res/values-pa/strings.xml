@@ -1,7 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
     <!-- General -->
-    <string name="app_name">Youki DEX</string>
+    <string name="app_name">DevDex</string>
     <string name="none">ਕੋਈ ਨਹੀਂ</string>
     <string name="move">ਮੂਵ ਕਰੋ</string>
     <string name="ok">ਠੀਕ ਹੈ</string>
