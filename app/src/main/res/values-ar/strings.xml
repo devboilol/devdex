@@ -392,7 +392,7 @@
     <string name="bubble_mode_custom">لون مخصص</string>
 
     <string name="system_sounds">أصوات واجهة النظام</string>
-    <string name="youki_sounds">أصوات DevDex</string>
+    <string name="devdex_sounds">أصوات DevDex</string>
     <string name="sound_lock">القفل</string>
     <string name="sound_unlock">فتح القفل</string>
     <string name="sound_low_battery">البطارية منخفضة</string>
