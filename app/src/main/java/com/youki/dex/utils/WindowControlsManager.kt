@@ -192,10 +192,24 @@ class WindowControlsManager(
             nativeCaptionCache.keys.retainAll(seenIds)
 
             // per-package index → so two windows of one app map to two tasks
+            // Dialog/popup windows from the same app can be reported as
+            // separate TYPE_APPLICATION windows. Don't decorate a small
+            // window fully contained inside a much larger same-app window;
+            // that would add a second Close button to the popup itself.
+            val topLevelCandidates = cands.filter { candidate ->
+                !cands.any { other ->
+                    other.id != candidate.id &&
+                        other.pkg == candidate.pkg &&
+                        other.layer < candidate.layer &&
+                        other.bounds.contains(candidate.bounds) &&
+                        other.bounds.width() >= candidate.bounds.width() * 3 / 2 &&
+                        other.bounds.height() >= candidate.bounds.height() * 3 / 2
+                }
+            }
             val perPkgCount = HashMap<String, Int>()
             val seenTaskIds = HashSet<Int>()
             val seenUnresolvedPackages = HashSet<String>()
-            val sorted = cands.sortedByDescending { it.layer }   // top-most first (matches recent-task order)
+            val sorted = topLevelCandidates.sortedByDescending { it.layer }   // top-most first
             val pillH = dp(30)
             val gap = dp(2)
 
@@ -422,6 +436,7 @@ class WindowControlsManager(
                     // Don't leave the task visible and claim minimize succeeded.
                     // Home is the unprivileged fallback; the task itself stays alive.
                     homeMinimized.add(taskId)
+                    bringToFront(taskId)
                     service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
                 }
                 handler.postDelayed({ scheduleUpdate() }, 300)
