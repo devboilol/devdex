@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Youki DEX</string>
+    <string name="app_name">DevDex</string>
     <string name="ok">ठीक है</string>
     <string name="cancel">रद्द करें</string>
     <string name="enable">सक्षम करें</string>
