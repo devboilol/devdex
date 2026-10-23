@@ -457,7 +457,7 @@ Zum Deinstallieren zuerst die Geräteverwaltungsberechtigung entfernen.</string>
     <string name="workshop_type_fonts">Schriftarten</string>
     <string name="off">Aus</string>
     <string name="path_copied">Pfad kopiert</string>
-    <string name="youki_sounds">DevDex-Töne</string>
+    <string name="devdex_sounds">DevDex-Töne</string>
     <string name="desktop_density_summary">Bildschirmdichte automatisch ändern, wenn der Desktop-Modus startet (empfohlen: 200). Wird beim Beenden zurückgesetzt.</string>
     <string name="add_new_source">Neue Quelle hinzufügen</string>
     <string name="perf_failed">Ausführung fehlgeschlagen — Berechtigungen prüfen</string>
