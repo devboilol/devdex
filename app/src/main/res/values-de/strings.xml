@@ -268,7 +268,7 @@
 
     <!-- Help and about page -->
     <string name="help_and_about">Hilfe und Informationen</string>
-    <string name="a_launcher_for_android_x86_by_">Ein Launcher für Android x86 von DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Desktop-Launcher für Android</string>
     <string name="help">Hilfe</string>
     <string name="youki_dex_its_free_and_open_">DevDex ist kostenlos und quelloffen. Beitragen auf GitHub</string>
     <string name="github">GitHub</string>

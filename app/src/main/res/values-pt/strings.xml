@@ -249,7 +249,7 @@
     <string name="manage">Gerenciar…</string>
     <string name="enable_tiling_shortcut">Alt+setas para organizar janelas em mosaico</string>
     <string name="more_help">Mais ajuda</string>
-    <string name="a_launcher_for_android_x86_by_">Um launcher em modo DeX por DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Launcher de desktop para Android</string>
     <string name="storage">Armazenamento</string>
     <string name="add_new_source">Adicionar nova fonte</string>
     <string name="perf_thermal_desc">Controlar o desempenho e o consumo da CPU</string>

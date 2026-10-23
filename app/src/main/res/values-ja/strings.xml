@@ -250,7 +250,7 @@
     <string name="delete_failed">削除に失敗しました</string>
     <string name="circle">円形</string>
     <string name="enable_power_menu_title">組み込みの電源メニュー</string>
-    <string name="a_launcher_for_android_x86_by_">DevDexによる DeXモードランチャー</string>
+    <string name="a_launcher_for_android_x86_by_">Android向けデスクトップランチャー</string>
     <string name="tweak_audio_title">オーディオとサウンドの強化Pro</string>
     <string name="standard">標準</string>
     <string name="enable_qs_wifi_title">Wi-Fi</string>

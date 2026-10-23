@@ -614,7 +614,7 @@
     <string name="enable_apps_btn">Uygulama menüsü</string>
     <string name="handle_position">Tutamaç konumu</string>
     <string name="lw_flip_h">Yatay çevir</string>
-    <string name="a_launcher_for_android_x86_by_">DevDex tarafından DeX modunda bir launcher</string>
+    <string name="a_launcher_for_android_x86_by_">Android için masaüstü başlatıcısı</string>
     <string name="user_diagnostics">Kullanıcı tanılama</string>
     <string name="wallpaper">Duvar kağıdı</string>
     <string name="no_files_found">Dosya bulunamadı</string>

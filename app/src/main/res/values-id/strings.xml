@@ -522,7 +522,7 @@
     <string name="manage_external_storage_desc">Akses penuh ke semua file di penyimpanan. Diperlukan untuk fitur pengelola file dan pintasan desktop.</string>
     <string name="tweak_touch_desc">Tingkatkan sensitivitas sentuh untuk sensasi seperti iPhone</string>
     <string name="accessibility_service_auto_failed_message">Layanan tidak dapat diaktifkan secara otomatis. Anda akan diarahkan untuk mengaktifkannya secara manual dari Pengaturan.</string>
-    <string name="a_launcher_for_android_x86_by_">Launcher mode DeX oleh DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Peluncur desktop untuk Android</string>
     <string name="max_running_apps_landscape">Maks. aplikasi terbaru (lanskap)</string>
     <string name="about_project_github_summary">Lihat kode sumber di GitHub</string>
     <string name="youki_desktop_add_success">Ditambahkan ke favorit ✅</string>

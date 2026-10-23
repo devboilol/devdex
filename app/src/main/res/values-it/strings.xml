@@ -652,7 +652,7 @@
     <string name="n_selected">%1$d selezionati</string>
     <string name="folder_name">Nome cartella</string>
     <string name="without_permissions">Senza autorizzazioni</string>
-    <string name="a_launcher_for_android_x86_by_">Un launcher in modalità DeX di DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Launcher desktop per Android</string>
     <string name="mobile_mode">Modalità mobile</string>
     <string name="cannot_read_zip">Impossibile leggere lo ZIP: %1$s</string>
     <string name="thermal_mode_balanced">Bilanciata</string>

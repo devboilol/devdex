@@ -372,7 +372,7 @@
     <string name="shell_terminal_desc">एक बिल्ट-इन टर्मिनल जो Root या Shizuku का उपयोग करके सीधे ऐप के अंदर शेल कमांड चलाता है।</string>
     <string name="black">काला</string>
     <string name="cannot_create_folder_in_zip">ZIP के अंदर फ़ोल्डर नहीं बनाया जा सकता</string>
-    <string name="a_launcher_for_android_x86_by_">DevDex द्वारा DeX मोड लॉन्चर</string>
+    <string name="a_launcher_for_android_x86_by_">Android के लिए डेस्कटॉप लॉन्चर</string>
     <string name="save">सहेजें</string>
     <string name="enable_f10_title">स्प्लिट स्क्रीन टॉगल करने के लिए F10</string>
     <string name="dock_shortcut_app_summary">जब आप डॉक में शॉर्टकट बटन टैप करते हैं तो खुलने वाला ऐप</string>

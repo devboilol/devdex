@@ -562,7 +562,7 @@
     <string name="perf_fps_reset">Réinitialiser</string>
     <string name="performance_mode_colon">Mode performance : %1$s</string>
     <string name="launch_assistant">Lancer l\'application assistant</string>
-    <string name="a_launcher_for_android_x86_by_">Un lanceur en mode DeX par DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Lanceur de bureau pour Android</string>
     <string name="compressed_colon">Compressé : %1$s</string>
     <string name="open_as_folder">Ouvrir comme dossier</string>
     <string name="perf_zram_root_note">ZRAM nécessite Root — avec Shizuku, cela fonctionne uniquement sur certains appareils</string>

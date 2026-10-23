@@ -248,7 +248,7 @@
     <string name="all_contents_will_be_deleted">모든 콘텐츠가 삭제됩니다!</string>
     <string name="lw_performance_section">성능</string>
     <string name="red">빨강</string>
-    <string name="a_launcher_for_android_x86_by_">DevDex의 DeX 모드 런처</string>
+    <string name="a_launcher_for_android_x86_by_">Android용 데스크톱 런처</string>
     <string name="select_category">카테고리 선택</string>
     <string name="lw_section_general">일반</string>
     <string name="share_via">다음을 통해 공유…</string>

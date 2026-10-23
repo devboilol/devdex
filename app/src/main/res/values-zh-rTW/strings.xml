@@ -267,7 +267,7 @@
 
     <!-- Help and about page -->
     <string name="help_and_about">說明與關於</string>
-    <string name="a_launcher_for_android_x86_by_">一個由 DevDex 開發的 Android x86 啟動器</string>
+    <string name="a_launcher_for_android_x86_by_">Android 桌面啟動器</string>
     <string name="help">說明</string>
     <string name="youki_dex_its_free_and_open_">DevDex 是免費且開源的。在 GitHub 上貢獻</string>
     <string name="github">GitHub</string>

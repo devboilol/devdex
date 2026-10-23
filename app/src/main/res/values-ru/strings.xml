@@ -199,7 +199,7 @@
     <string name="enable_notif_panel_title">Панель уведомлений</string>
     <string name="rotation">Поворот</string>
     <string name="sound_notification">Уведомление</string>
-    <string name="a_launcher_for_android_x86_by_">Launcher в режиме DeX от DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Десктопный лаунчер для Android</string>
     <string name="charging_sound_enabled_summary">Воспроизводить звук при начале зарядки</string>
     <string name="enable_apps_btn">Меню приложений</string>
     <string name="bubble_mode_custom">Пользовательский цвет</string>

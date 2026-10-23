@@ -81,7 +81,7 @@
     <string name="about_project_github_summary">Ver código fuente en GitHub</string>
     <string name="dock_activation_area_summary">La altura del área de activación invisible en la parte inferior de la pantalla</string>
     <string name="launch_assistant">Iniciar app de asistente</string>
-    <string name="a_launcher_for_android_x86_by_">Un launcher en modo DeX por DevDex</string>
+    <string name="a_launcher_for_android_x86_by_">Lanzador de escritorio para Android</string>
     <string name="file_name">Nombre del archivo</string>
     <string name="prop_modified">Modificado</string>
     <string name="running_apps_number_title">Número de apps en ejecución/recientes a mostrar</string>
