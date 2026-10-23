@@ -639,7 +639,7 @@ class MainActivity : BaseFontScaleActivity(),
         }
         db.setNeutralButton(R.string.help) { _, _ ->
             AppUtils.openUrl(this,
-                "https://github.com/mrYouki/YoukiDex-Android-Desktop#grant-restricted-permissions")
+                "https://github.com/devboilol/devdex#grant-restricted-permissions")
         }
         db.show()
     }
@@ -667,7 +667,7 @@ class MainActivity : BaseFontScaleActivity(),
         }
         db.setNeutralButton(R.string.help) { _, _ ->
             AppUtils.openUrl(this,
-                "https://github.com/mrYouki/YoukiDex-Android-Desktop#grant-restricted-permissions")
+                "https://github.com/devboilol/devdex#grant-restricted-permissions")
         }
         db.show()
     }
