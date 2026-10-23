@@ -2879,7 +2879,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         val closeAppRow = view.findViewById<LinearLayout>(R.id.pin_entry_close_app)
         if (dockApp != null) {
             closeAppRow.visibility = View.VISIBLE
-            closeAppRow.findViewById<ImageView>(android.R.id.icon)?.let {
+            closeAppRow.findViewById<ImageView>(R.id.pin_entry_close_app_icon)?.let {
                 ColorUtils.applySecondaryColor(context, sharedPreferences, it)
             }
             closeAppRow.setOnClickListener {
