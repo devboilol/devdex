@@ -72,7 +72,7 @@
     <string name="user_diagnostics">Diagnostica utenti</string>
     <string name="enable_open_terminal_title">Alt+T per aprire il terminale</string>
     <string name="prefer_last_display_summary">Preferisci schermi secondari per visualizzare app e dock</string>
-    <string name="shell_terminal">Terminale Shell Youki</string>
+    <string name="shell_terminal">Terminale Shell DevDex</string>
     <string name="num_columns_title">Numero di colonne</string>
     <string name="tweak_section_root">Richiede Root</string>
     <string name="perf_thermal_desc">Controlla le prestazioni e il consumo della CPU</string>
