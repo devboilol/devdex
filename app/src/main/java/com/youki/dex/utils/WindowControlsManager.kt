@@ -71,6 +71,10 @@ class WindowControlsManager(
     private val handler = Handler(Looper.getMainLooper())
     private val pills = HashMap<Int, Pill>()
     private val pkgCache = HashMap<Int, String>()
+    // Cache caption detection per accessibility window. Native Android
+    // desktop captions already have Close/Maximize/Minimize buttons, so
+    // drawing a second overlay on those windows creates duplicate controls.
+    private val nativeCaptionCache = HashMap<Int, Boolean>()
     private val minimized = HashMap<Int, Rect>()
     private var pending = false
     private var destroyed = false
@@ -148,20 +152,30 @@ class WindowControlsManager(
                     // top center. This uses the same layout in portrait and
                     // landscape and avoids creating a second special case.
                     var pkg = pkgCache[w.id]
-                    if (pkg == null) {
+                    if (pkg == null || !nativeCaptionCache.containsKey(w.id)) {
                         val root = w.root
-                        pkg = root?.packageName?.toString()
+                        if (pkg == null) {
+                            pkg = root?.packageName?.toString()
+                            if (pkg != null) pkgCache[w.id] = pkg
+                        }
+                        if (root != null && !nativeCaptionCache.containsKey(w.id)) {
+                            nativeCaptionCache[w.id] = hasNativeCaptionControls(root)
+                        }
                         try { root?.recycle() } catch (e: Exception) {}
-                        if (pkg != null) pkgCache[w.id] = pkg
                     }
                     if (pkg.isNullOrEmpty() || pkg == ctx.packageName) continue
-                    cands.add(Cand(w.id, w.layer, b, pkg))
                     seenIds.add(w.id)
+                    // Native/system caption buttons take precedence when they
+                    // are exposed through the accessibility tree. This keeps
+                    // one control set instead of stacking a second close button.
+                    if (nativeCaptionCache[w.id] == true) continue
+                    cands.add(Cand(w.id, w.layer, b, pkg))
                 } finally {
                     try { w.recycle() } catch (e: Exception) {}
                 }
             }
             pkgCache.keys.retainAll(seenIds)
+            nativeCaptionCache.keys.retainAll(seenIds)
 
             // per-package index → so two windows of one app map to two tasks
             val perPkgCount = HashMap<String, Int>()
@@ -224,6 +238,52 @@ class WindowControlsManager(
         } catch (e: Exception) {
             // never let window-decoration problems crash the dock
         }
+    }
+
+    /**
+     * Android desktop/freeform captions expose standard view IDs on builds
+     * that publish their caption controls into the window's accessibility
+     * tree. Detect the close button plus either maximize or minimize before
+     * adding our overlay. OEMs that do not expose these IDs use the custom
+     * controls as before.
+     */
+    private fun hasNativeCaptionControls(
+        root: android.view.accessibility.AccessibilityNodeInfo
+    ): Boolean {
+        val queue = java.util.ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
+        var hasClose = false
+        var hasResize = false
+        var visited = 0
+        queue.add(root)
+        try {
+            while (queue.isNotEmpty() && visited < 180) {
+                val node = queue.removeFirst()
+                visited++
+                try {
+                    val id = node.viewIdResourceName
+                        ?.substringAfterLast('/')
+                        ?.lowercase()
+                    when (id) {
+                        "close_window" -> hasClose = true
+                        "maximize_window", "minimize_window" -> hasResize = true
+                    }
+                    if (hasClose && hasResize) return true
+                    for (i in 0 until node.childCount) {
+                        val child = node.getChild(i) ?: continue
+                        queue.addLast(child)
+                    }
+                } finally {
+                    try { node.recycle() } catch (e: Exception) {}
+                }
+            }
+        } catch (e: Exception) {
+            // Caption detection is advisory only; fall back to custom controls.
+        } finally {
+            while (queue.isNotEmpty()) {
+                try { queue.removeFirst().recycle() } catch (e: Exception) {}
+            }
+        }
+        return false
     }
 
     private fun removeAll() {
