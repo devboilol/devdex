@@ -260,7 +260,7 @@ object DeviceUtils {
         // Check that the file exists before attempting playback
         val file = File(filePath)
         if (!file.exists() || !file.canRead()) {
-            Log.w("YoukiDex", "Sound file not found or not readable: $filePath")
+            Log.w("DevDex", "Sound file not found or not readable: $filePath")
             return
         }
 
@@ -296,7 +296,7 @@ object DeviceUtils {
                     }
 
                     setOnErrorListener { player, what, extra ->
-                        Log.e("YoukiDex", "MediaPlayer error [$event]: what=$what extra=$extra")
+                        Log.e("DevDex", "MediaPlayer error [$event]: what=$what extra=$extra")
                         activePlayers.remove(player)
                         player.release()
                         true
@@ -311,12 +311,12 @@ object DeviceUtils {
                 // and no listener had fired yet to remove and release it — it
                 // stayed hanging in memory forever. Every failed sound = a
                 // permanently leaked MediaPlayer instance.
-                Log.e("YoukiDex", "playEventSound setup failed [$event]: ${setupError.message}")
+                Log.e("DevDex", "playEventSound setup failed [$event]: ${setupError.message}")
                 activePlayers.remove(mp)
                 try { mp.release() } catch (_: Exception) {}
             }
         } catch (e: Exception) {
-            Log.e("YoukiDex", "playEventSound failed [$event]: ${e.message}")
+            Log.e("DevDex", "playEventSound failed [$event]: ${e.message}")
         }
     }
 
@@ -325,7 +325,7 @@ object DeviceUtils {
             Settings.System.putString(context.contentResolver, key, value)
             true
         } catch (e: SecurityException) {
-            Log.e("YoukiDex", "putSystemSetting failed [$key]: ${e.message}")
+            Log.e("DevDex", "putSystemSetting failed [$key]: ${e.message}")
             false
         } catch (e: IllegalArgumentException) {
             // Fix for full app crash: modern Android rejects any key not on the
@@ -335,7 +335,7 @@ object DeviceUtils {
             // catch, any call with a disallowed key used to crash the entire
             // app instead of failing silently in a way the caller could handle
             // (e.g. by showing the user a message).
-            Log.e("YoukiDex", "putSystemSetting rejected [$key]: ${e.message}")
+            Log.e("DevDex", "putSystemSetting rejected [$key]: ${e.message}")
             false
         }
     }
