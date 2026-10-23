@@ -1,23 +1,21 @@
-> ⚠️ **Development on this project has been discontinued.** This repo is archived — no further updates, but everything below still describes it accurately.
-
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mrYouki/YoukiDex-Android-Desktop/main/app/src/main/ic_launcher-playstore.png" width="100" alt="YoukiDEX Logo"/>
+  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/app/src/main/res/drawable/devdex_icon.webp" width="100" alt="DevDex Logo"/>
 </p>
 
-<h1 align="center">YoukiDEX</h1>
+<h1 align="center">DevDex</h1>
 
 <p align="center">
   A full desktop experience for Android
 </p>
 
 <p align="center">
-  <a href="https://github.com/mrYouki/YoukiDex-Android-Desktop/releases">
-    <img src="https://img.shields.io/github/v/release/mrYouki/YoukiDex-Android-Desktop?style=for-the-badge" alt="Latest release"/>
+  <a href="https://github.com/devboilol/devdex/releases">
+    <img src="https://img.shields.io/github/v/release/devboilol/devdex?style=for-the-badge" alt="Latest release"/>
   </a>
-  <a href="https://github.com/mrYouki/YoukiDex-Android-Desktop/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/mrYouki/YoukiDex-Android-Desktop?style=for-the-badge" alt="License"/>
+  <a href="https://github.com/devboilol/devdex/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/devboilol/devdex?style=for-the-badge" alt="License"/>
   </a>
-  <a href="https://github.com/mrYouki/YoukiDex-Android-Desktop/releases/latest">
+  <a href="https://github.com/devboilol/devdex/releases/latest">
     <img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android" alt="Download APK"/>
   </a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-green?style=for-the-badge&logo=android" alt="Android"/>
@@ -27,7 +25,7 @@
 
 ## What is this?
 
-YoukiDEX turns your phone into something closer to a desktop — a taskbar, an app dock, windows you can resize and move around, hot corners, the whole thing. It runs as an Accessibility Service overlay, so it doesn't have to become your default launcher (though most people end up setting it as one anyway, just so it loads automatically instead of having to open it every time).
+DevDex turns your phone into something closer to a desktop — a taskbar, an app dock, windows you can resize and move around, hot corners, the whole thing. It runs as an Accessibility Service overlay, so it doesn't have to become your default launcher (though most people end up setting it as one anyway, just so it loads automatically instead of having to open it every time).
 
 A few features — custom display size, freezing background apps, that kind of thing — need Root or Shizuku. Everything else works out of the box.
 
@@ -35,9 +33,7 @@ A few features — custom display size, freezing background apps, that kind of t
 
 ## About the project
 
-Just one person building this in their free time — no team, no company. Everything, including the native engine, gets written and built directly on a phone (a mid-range one — Unisoc T606, 8GB RAM) using Android code studio (acs). No laptop involved at any point. It also gets tested on a itel S23, mostly to make sure nothing that only shows up on a budget-tier phone slips through.
-
-That setup naturally shapes how things move: updates go out when something's actually ready, not on a schedule, and how fast bugs get fixed depends on how much free time there is that week.
+DevDex is an independent continuation of an Android desktop launcher. This fork focuses on reliable app launching, multi-window management, localization, and a consistent desktop-style interface. The original open-source license and upstream attribution are preserved.
 
 ---
 
@@ -53,7 +49,7 @@ That setup naturally shapes how things move: updates go out when something's act
 
 ---
 
-For release notes and version history, check the [GitHub Releases page](https://github.com/mrYouki/YoukiDex-Android-Desktop/releases) — every release has its own detailed changelog.
+For release notes and version history, check the [GitHub Releases page](https://github.com/devboilol/devdex/releases) — every release has its own detailed changelog.
 
 ---
 
@@ -72,7 +68,7 @@ For release notes and version history, check the [GitHub Releases page](https://
 
 **Power menu**
 - Settings, lock, power off, restart
-- Restart or fully close just YoukiDEX itself, without touching the rest of the phone
+- Restart or fully close just DevDex itself, without touching the rest of the phone
 - Switch to another user directly from the same menu
 
 **Apps**
@@ -138,20 +134,20 @@ Runs on Android 8.0 and up, built with Gradle and Cargo, all of it compiled on-d
 ## Screenshots
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mrYouki/YoukiDex-Android-Desktop/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="100%" />
+  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="100%" />
   <br/>
-  <img src="https://raw.githubusercontent.com/mrYouki/YoukiDex-Android-Desktop/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="100%" />
+  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="100%" />
   <br/>
-  <img src="https://raw.githubusercontent.com/mrYouki/YoukiDex-Android-Desktop/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="100%" />
+  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="100%" />
 </p>
 
 ---
 
 ## Quick Start
 
-1. Install the APK and open YoukiDEX
+1. Install the APK and open DevDex
 2. Grant the permissions it asks for — Accessibility is the one that actually matters, nothing draws without it
-3. Then either add the Quick Settings tile and tap it, set YoukiDEX as your launcher, or use the home-screen shortcut it offers on first launch
+3. Then either add the Quick Settings tile and tap it, set DevDex as your launcher, or use the home-screen shortcut it offers on first launch
 
 ---
 
@@ -159,7 +155,7 @@ Runs on Android 8.0 and up, built with Gradle and Cargo, all of it compiled on-d
 
 A few features need `WRITE_SECURE_SETTINGS`-level access. Three ways to get there:
 
-- **Shizuku** (easiest long-term) — install it, start it once, then grant YoukiDEX permission when it asks.
+- **Shizuku** (easiest long-term) — install it, start it once, then grant DevDex permission when it asks.
 - **Root** — Magisk or KernelSU, detected automatically, nothing to set up.
 - **ADB**, if you'd rather do it manually and don't have either:
   ```bash
@@ -196,7 +192,7 @@ Without any of these, the app still works — you just won't have the handful of
 3. Go to **Settings → Display → Desktop Mode** and enable it
 4. Reboot
 
-Not a YoukiDEX bug — that's just how those phones ship.
+Not a DevDex bug — that's just how those phones ship.
 
 **Forced landscape doesn't work on some apps.** If an app hardcodes portrait mode, there's no way to override that without root or system-level access — that's an Android limitation, not something fixable from a regular app.
 
