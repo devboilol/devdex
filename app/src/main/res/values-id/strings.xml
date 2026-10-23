@@ -543,7 +543,7 @@
     <string name="no_video_player_installed">Tidak ada pemutar video yang terinstal</string>
     <string name="enable_f10_title">F10 untuk mengalihkan layar terpisah</string>
     <string name="perf_zram_off">Nonaktifkan ZRAM</string>
-    <string name="youki_sounds">Suara DevDex</string>
+    <string name="devdex_sounds">Suara DevDex</string>
     <string name="app_help">Aktifkan Shizuku untuk membuka semua fitur. Tanpanya, setengah dari fitur tidak akan tersedia.\n\nUntuk bantuan mengenai masalah apa pun, kunjungi halaman GitHub.\n\nBerikan izin Aksesibilitas dari Pengaturan untuk menggunakan semua fitur.\n\nUntuk menghapus instalan, hapus dulu izin Administrator perangkat.</string>
     <string name="name_is_empty">Nama kosong!</string>
     <string name="tweak_touch_title">Mode Ultra-Touch (sensasi iPhone)</string>
