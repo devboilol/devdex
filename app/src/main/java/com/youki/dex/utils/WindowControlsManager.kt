@@ -18,6 +18,7 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.LinearLayout
 import android.widget.Toast
+import com.youki.dex.R
 
 /**
  * WindowControlsManager — Windows-style [ – ] [ □ ] [ × ] buttons for every
