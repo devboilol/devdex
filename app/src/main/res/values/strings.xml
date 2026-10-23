@@ -1085,4 +1085,6 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="trackpad_status_no_display">No screen connected</string>
     <string name="trackpad_status_accessibility_needed">Enable DevDex\'s accessibility service first (Settings)</string>
 
+    <string name="window_task_not_found">DevDex could not identify this window task. Try granting DevDex Shizuku access or use Close app if ending the whole session is acceptable.</string>
+    <string name="shizuku_permission_required_for_window_close">Shizuku may be running, but DevDex still needs authorization in Shizuku. Grant access to DevDex, then tap Close again.</string>
 </resources>
