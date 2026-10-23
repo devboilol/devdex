@@ -45,23 +45,6 @@ class HelpAboutPreferences : Fragment(R.layout.fragment_help_about) {
         view.findViewById<View>(R.id.row_github).setOnClickListener {
             AppUtils.openUrl(requireContext(), "https://github.com/devboilol/devdex")
         }
-        view.findViewById<View>(R.id.row_discord).setOnClickListener {
-            AppUtils.openUrl(requireContext(), "https://discord.gg/mKkaMxd5M2")
-        }
-
-        // Tapping the app identity card (icon + name + tagline): a small
-        // easter egg-ish nudge toward Discord as the faster support channel,
-        // separate from the 7-tap Developer Mode counter below. A real
-        // dialog (not a Snackbar) since the message is long — a Snackbar's
-        // one or two lines truncated it with "..." and there was no way to
-        // read the rest. Same MaterialAlertDialogBuilder pattern as
-        // DebugActivity's crash dialog for consistency.
-        view.findViewById<View>(R.id.row_app_identity).setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setMessage(R.string.discord_is_faster_notice)
-                .setPositiveButton(R.string.ok, null)
-                .show()
-        }
 
         // ── Tapping the version row: runs both counters together ──────────
         view.findViewById<View>(R.id.app_version_title).setOnClickListener {
