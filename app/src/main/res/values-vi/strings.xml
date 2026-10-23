@@ -130,6 +130,7 @@
     <string name="enable_lock_desktop_title">Alt+L để khóa desktop</string>
     <string name="enable_open_settings_title">Alt+P để mở cài đặt</string>
     <string name="sounds">Âm thanh</string>
+    <string name="devdex_sounds">Âm thanh DevDex</string>
     <string name="notifications">Thông báo</string>
     <string name="manage_service">Quản lý dịch vụ</string>
     <string name="hot_corners">Góc nóng</string>
