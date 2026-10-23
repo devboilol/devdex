@@ -79,6 +79,7 @@
         android:layout_marginTop="6dp">
 
         <ImageView
+            android:id="@+id/pin_entry_close_app_icon"
             android:layout_height="32dp"
             android:layout_width="32dp"
             android:src="@drawable/ic_close"
