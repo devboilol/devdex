@@ -649,7 +649,7 @@
     <string name="bubble_opacity_title">버블 불투명도</string>
     <string name="tweak_thermalkiller_desc">최대 성능을 위해 열 스로틀링을 비활성화합니다</string>
     <string name="enter_source_name">사이트 이름을 입력하세요</string>
-    <string name="shell_terminal">Youki 셸 터미널</string>
+    <string name="shell_terminal">DevDex 셸 터미널</string>
     <string name="vp_copied">복사되었습니다 ✅</string>
     <string name="rename_failed">이름 변경에 실패했습니다</string>
     <string name="about_project_github_summary">GitHub에서 소스 코드 보기</string>
