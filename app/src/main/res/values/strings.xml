@@ -700,6 +700,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="top">Top</string>
     <string name="bottom">Bottom</string>
     <string name="close_window">Close Window</string>
+    <string name="close_app">Close app</string>
 
     <!-- Theme Transparency Override (1.15) -->
     <string name="override_dock_background_opacity">Override Dock Background Opacity</string>
