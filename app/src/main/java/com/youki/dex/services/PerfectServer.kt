@@ -2812,8 +2812,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     // (this one used to skip Shizuku entirely and then did nothing)
                     windowControls?.restoreIfMinimized(taskId)
                     serviceScope.launch(Dispatchers.IO) {
-                        if (taskId != -1) AppUtils.closeTask(context, taskId) else forceStopPackage(closePkg)
+                        val closed = taskId != -1 && AppUtils.closeTask(context, taskId)
                         withContext(Dispatchers.Main) {
+                            if (!closed) {
+                                Toast.makeText(context, R.string.window_control_privilege_required, Toast.LENGTH_SHORT).show()
+                            }
                             dockHandler.postDelayed({ updateRunningTasks(true) }, 400)
                         }
                     }
