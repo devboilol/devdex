@@ -493,7 +493,7 @@
     <string name="view_text">Voir le texte</string>
     <string name="sound_startup">Démarrage</string>
     <string name="num_columns_title">Nombre de colonnes</string>
-    <string name="youki_sounds">Sons DevDex</string>
+    <string name="devdex_sounds">Sons DevDex</string>
     <string name="no_access_permission">Aucune autorisation d\'accès</string>
     <string name="sound_lock">Verrouillage</string>
     <string name="extract_to">Extraire vers...</string>
