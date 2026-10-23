@@ -17,6 +17,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.LinearLayout
+import android.widget.Toast
 
 /**
  * WindowControlsManager — Windows-style [ – ] [ □ ] [ × ] buttons for every
@@ -32,10 +33,8 @@ import android.widget.LinearLayout
  *  • close    → `am task remove <id>` (AppUtils.closeTask); if no task id is
  *               known the app is force-stopped through the shell instead
  *  • maximize → AppUtils.resizeTask(..., "maximized") / back to "standard"
- *  • minimize → the task is moved below the bottom edge of the display (its
- *               bounds are remembered); clicking its dock icon restores it.
- *               NOTE: this relies on the ROM accepting off-screen bounds
- *               from `am task resize` — untested across ROMs.
+ *  • minimize → tries to park the task off-screen; if the ROM blocks task
+ *               resizing, falls back to Android Home and restores from the dock.
  *
  * Preference "window_controls_enabled" (default true) switches it off live.
  * Everything is wrapped defensively: a failure here must never take the
@@ -76,6 +75,7 @@ class WindowControlsManager(
     // drawing a second overlay on those windows creates duplicate controls.
     private val nativeCaptionCache = HashMap<Int, Boolean>()
     private val minimized = HashMap<Int, Rect>()
+    private val homeMinimized = HashSet<Int>()
     private var pending = false
     private var destroyed = false
 
@@ -100,14 +100,25 @@ class WindowControlsManager(
         handler.removeCallbacksAndMessages(null)
         removeAll()
         minimized.clear()
+        homeMinimized.clear()
     }
 
     /** If [taskId] was minimized by this manager, restore it and return true. */
     fun restoreIfMinimized(taskId: Int): Boolean {
         val bounds = minimized.remove(taskId) ?: return false
-        io {
-            AppUtils.resizeTaskToBounds(ctx, taskId, bounds)
+        if (homeMinimized.remove(taskId)) {
+            // The first minimize attempt was denied by the ROM, so Home was
+            // used as a non-destructive fallback. The task retained its bounds.
             handler.post { bringToFront(taskId); scheduleUpdate() }
+            return true
+        }
+        io {
+            val restored = AppUtils.resizeTaskToBounds(ctx, taskId, bounds)
+            handler.post {
+                if (!restored) Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
+                bringToFront(taskId)
+                scheduleUpdate()
+            }
         }
         return true
     }
@@ -161,7 +172,7 @@ class WindowControlsManager(
                         if (root != null && !nativeCaptionCache.containsKey(w.id)) {
                             // hasNativeCaptionControls() owns and recycles the
                             // root node together with the child nodes it visits.
-                            nativeCaptionCache[w.id] = hasNativeCaptionControls(root)
+                            nativeCaptionCache[w.id] = hasNativeCaptionControls(root, b)
                         } else {
                             try { root?.recycle() } catch (e: Exception) {}
                         }
@@ -251,7 +262,8 @@ class WindowControlsManager(
      * controls as before.
      */
     private fun hasNativeCaptionControls(
-        root: android.view.accessibility.AccessibilityNodeInfo
+        root: android.view.accessibility.AccessibilityNodeInfo,
+        windowBounds: Rect
     ): Boolean {
         val queue = java.util.ArrayDeque<android.view.accessibility.AccessibilityNodeInfo>()
         var hasClose = false
@@ -266,9 +278,17 @@ class WindowControlsManager(
                     val id = node.viewIdResourceName
                         ?.substringAfterLast('/')
                         ?.lowercase()
-                    when (id) {
-                        "close_window" -> hasClose = true
-                        "maximize_window", "minimize_window" -> hasResize = true
+                    val nodeBounds = Rect()
+                    node.getBoundsInScreen(nodeBounds)
+                    val inCaptionBand = nodeBounds.top >= windowBounds.top - dp(4) &&
+                        nodeBounds.top <= windowBounds.top + dp(72) &&
+                        nodeBounds.bottom <= windowBounds.top + dp(104)
+                    if (inCaptionBand) {
+                        when (id) {
+                            "close_window", "caption_close_window" -> hasClose = true
+                            "maximize_window", "caption_maximize_window",
+                            "minimize_window", "caption_minimize_window" -> hasResize = true
+                        }
                     }
                     if (hasClose && hasResize) return true
                     for (i in 0 until node.childCount) {
@@ -349,6 +369,7 @@ class WindowControlsManager(
         val taskId = p.taskId
         val pkg = p.pkg
         minimized.remove(taskId)
+        homeMinimized.remove(taskId)
         io {
             if (taskId != -1) AppUtils.closeTask(ctx, taskId) else forceStop(pkg)
             handler.postDelayed({ scheduleUpdate() }, 500)
@@ -361,8 +382,11 @@ class WindowControlsManager(
         val mode = if (p.isMax) "standard" else "maximized"
         val dh = dockHeight()
         io {
-            AppUtils.resizeTask(ctx, mode, taskId, dh)
-            handler.postDelayed({ scheduleUpdate() }, 500)
+            val resized = AppUtils.resizeTask(ctx, mode, taskId, dh)
+            handler.post {
+                if (!resized) Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
+                handler.postDelayed({ scheduleUpdate() }, 300)
+            }
         }
     }
 
@@ -375,8 +399,16 @@ class WindowControlsManager(
         // park the window just below the bottom edge, keeping its size
         val parked = Rect(b.left, dm.heightPixels + dp(8), b.right, dm.heightPixels + dp(8) + b.height())
         io {
-            AppUtils.resizeTaskToBounds(ctx, taskId, parked)
-            handler.postDelayed({ scheduleUpdate() }, 500)
+            val parkedSuccessfully = AppUtils.resizeTaskToBounds(ctx, taskId, parked)
+            handler.post {
+                if (!parkedSuccessfully) {
+                    // Don't leave the task visible and claim minimize succeeded.
+                    // Home is the unprivileged fallback; the task itself stays alive.
+                    homeMinimized.add(taskId)
+                    service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+                }
+                handler.postDelayed({ scheduleUpdate() }, 300)
+            }
         }
     }
 
