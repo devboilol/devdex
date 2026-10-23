@@ -197,7 +197,7 @@
     <string name="force_stop_dex">Forçar parada</string>
     <string name="prop_name">Nome</string>
     <string name="bottom">Inferior</string>
-    <string name="youki_sounds">Sons do DevDex</string>
+    <string name="devdex_sounds">Sons do DevDex</string>
     <string name="enable_power_menu_summary">Usar um menu de energia personalizado em vez do sistema</string>
     <string name="the_user">O usuário</string>
     <string name="enable_dock_shortcut_title">Mostrar botão de acesso rápido no Dock</string>
