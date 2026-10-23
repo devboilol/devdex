@@ -799,7 +799,25 @@ object AppUtils {
      */
     fun closeTask(context: Context, taskId: Int): Boolean {
         if (taskId < 0) return false
-        return runTaskShellCommand(context, "am task remove $taskId")
+
+        // AOSP exposes task removal under "am stack remove" (remove a root task).
+        // "am task remove" is not implemented by many Android versions and only
+        // prints "unknown command", which used to be misreported as missing
+        // Shizuku/Root even when DevDex had permission. Keep the legacy spelling
+        // as a vendor fallback, but use the standard command first.
+        val commands = listOf(
+            "am stack remove $taskId",
+            "cmd activity stack remove $taskId",
+            "am task remove $taskId"
+        )
+        for (command in commands) {
+            if (runTaskShellCommand(context, command)) {
+                android.util.Log.i("DevDexWindowControls", "Closed task $taskId using ${command.substringBefore(' ')}")
+                return true
+            }
+        }
+        android.util.Log.w("DevDexWindowControls", "All task removal commands failed for task $taskId")
+        return false
     }
 
     /**
