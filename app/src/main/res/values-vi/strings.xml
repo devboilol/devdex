@@ -230,7 +230,7 @@
     <string name="close_app">Đóng ứng dụng</string>
     <string name="close">Đóng</string>
     <string name="desktop_mode">Chế độ desktop</string>
-    <string name="unpin_fullscreen">Bỏ ghim khi ứng dụng toàn màn hình</string>
+
     <string name="onboarding_welcome_title">Chào mừng đến với DevDex</string>
     <string name="onboarding_support_title">Bạn thấy DevDex hữu ích chứ?</string>
     <string name="onboarding_welcome_body">Hãy thiết lập desktop. Quá trình này chỉ mất một phút.</string>
