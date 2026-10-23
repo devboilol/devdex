@@ -770,7 +770,7 @@
     <string name="workshop_type_fonts">字体</string>
     <string name="sound_low_battery">电量不足</string>
     <string name="lw_gallery_title">壁纸</string>
-    <string name="shell_terminal">Youki Shell 终端</string>
+    <string name="shell_terminal">DevDex Shell 终端</string>
     <string name="font_installed">字体已安装：%1$s</string>
     <string name="n_selected">已选择 %1$d 个</string>
     <string name="restart_dex">重启 DEX</string>
