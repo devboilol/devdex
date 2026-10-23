@@ -3507,8 +3507,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 }
             } else {
                 fetchedTasks.reversed().forEach { task ->
-                    if (AppUtils.containsTask(apps, task) == -1)
+                    val existingIndex = AppUtils.containsTask(apps, task)
+                    if (existingIndex == -1) {
                         apps.add(DockApp(task))
+                    } else {
+                        // One dock icon can represent several freeform tasks
+                        // from the same package. Keep every task attached so
+                        // tapping the icon can switch between open windows.
+                        (apps[existingIndex] as? DockApp)?.addTask(task)
+                    }
                 }
             }
 
