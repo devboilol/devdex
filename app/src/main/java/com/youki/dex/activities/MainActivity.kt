@@ -220,8 +220,8 @@ class MainActivity : BaseFontScaleActivity(),
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
         val shortcutInfo = ShortcutInfo.Builder(this, "youki_desktop_shortcut")
-            .setShortLabel("Youki DEX")
-            .setLongLabel("Youki Desktop Mode")
+            .setShortLabel("DevDex")
+            .setLongLabel("DevDex Desktop")
             // ic_youki removed: it's now a wide 16:9 image used only for the
             // onboarding welcome screen (fragment_onboarding_welcome.xml).
             // A pinned home-screen shortcut icon is masked into a square/
