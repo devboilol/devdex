@@ -168,7 +168,7 @@
     <string name="moved_x_of_y">Movidos %1$d de %2$d</string>
     <string name="more_help">Más ayuda</string>
     <string name="lw_reset">Restablecer</string>
-    <string name="youki_sounds">Sonidos de DevDex</string>
+    <string name="devdex_sounds">Sonidos de DevDex</string>
     <string name="manage_external_storage_desc">Acceso completo a todos los archivos del almacenamiento. Necesario para las funciones del gestor de archivos y accesos directos de escritorio.</string>
     <string name="bubble_opacity_title">Opacidad de la burbuja</string>
     <string name="wallpaper_button_summary">Mostrar un botón de acceso directo en el dock</string>
