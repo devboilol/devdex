@@ -49,7 +49,7 @@ class WindowControlsManager(
     private val dockHeight: () -> Int,
     /** resolves (packageName, nthWindowOfThatPackage) -> taskId or -1 */
     private val taskIdFor: (String, Int) -> Int,
-    private val forceStop: (String) -> Boolean,
+
     private val bringToFront: (Int) -> Unit,
     private val io: (() -> Unit) -> Unit
 ) {
@@ -398,10 +398,11 @@ class WindowControlsManager(
         minimized.remove(taskId)
         homeMinimized.remove(taskId)
         io {
-            var closed = taskId != -1 && AppUtils.closeTask(ctx, taskId)
-            if (!closed) closed = forceStop(pkg)
+            // Close Window removes this task only. It must not force-stop the
+            // whole package; use the separate taskbar Close app action for that.
+            val closed = taskId != -1 && AppUtils.closeTask(ctx, taskId)
             handler.post {
-                if (!closed) Toast.makeText(ctx, R.string.close_app_privilege_required, Toast.LENGTH_SHORT).show()
+                if (!closed) Toast.makeText(ctx, R.string.window_control_privilege_required, Toast.LENGTH_SHORT).show()
                 handler.postDelayed({ scheduleUpdate() }, 350)
             }
         }
