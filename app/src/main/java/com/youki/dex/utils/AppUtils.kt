@@ -921,14 +921,17 @@ object AppUtils {
             val taskIdRegex = Regex("""taskId=(\d+)""")
             val pkgRegex = Regex("""baseIntent=([a-zA-Z0-9_.]+)/""")
 
-            val seenPkgs = mutableSetOf<String>()
+            // Tasks, not packages, are the unit of identity here. Two
+            // freeform windows may legitimately belong to the same package;
+            // deduplicating by package made the second window disappear from
+            // the dock and confused title-bar controls about which task to act on.
+            val seenTaskIds = mutableSetOf<Int>()
             for (line in output.lines()) {
                 if (result.size >= max) break
                 val taskId = taskIdRegex.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: continue
                 val pkg = pkgRegex.find(line)?.groupValues?.get(1) ?: continue
                 if (pkg == selfPkg || pkg == launcherPkg || pkg.contains("systemui")) continue
-                if (seenPkgs.contains(pkg)) continue
-                seenPkgs.add(pkg)
+                if (!seenTaskIds.add(taskId)) continue
 
                 try {
                     val intent = packageManager.getLaunchIntentForPackage(pkg) ?: continue
