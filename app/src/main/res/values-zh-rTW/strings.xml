@@ -544,7 +544,7 @@
     <string name="perf_zram_select">選擇 ZRAM 大小</string>
     <string name="saved_file">已儲存：%1$s</string>
     <string name="lw_performance_section">效能</string>
-    <string name="shell_terminal">Youki Shell 終端</string>
+    <string name="shell_terminal">DevDex Shell 終端</string>
     <string name="completed_successfully">成功完成</string>
     <string name="shizuku_or_root_required_change_avatar">更改頭像需要 Shizuku 或 Root 許可權</string>
     <string name="lw_apply_unsupported">您的裝置不支援直接從應用設定動態桌布。請前往 設定 → 桌布 手動選擇 DevDex。</string>
