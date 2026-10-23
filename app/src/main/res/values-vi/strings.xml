@@ -868,7 +868,7 @@
     <string name="install_step_extracted_count">Đã giải nén %1$d mục</string>
     <string name="install_error_not_zip">Tệp không phải ZIP hợp lệ</string>
     <string name="install_error_read_failed">Không thể đọc tệp</string>
-    <string name="install_error_copy_failed">Không thể sao chép tệp</string>
+    <string name="install_error_copy_failed">Không thể sao chép tệp: %1$s</string>
     <string name="install_error_extract_failed">Không thể giải nén tệp</string>
     <string name="install_error_empty_archive">Tệp lưu trữ trống</string>
     <string name="tap_to_diagnose">Chạm để chẩn đoán</string>
@@ -936,7 +936,7 @@
     <string name="onboarding_ui_customization_url_hint">Nhập URL</string>
     <string name="onboarding_ui_customization_download">Tải xuống</string>
     <string name="onboarding_ui_customization_downloading">Đang tải xuống</string>
-    <string name="onboarding_ui_customization_download_failed">Tải xuống thất bại</string>
+    <string name="onboarding_ui_customization_download_failed">Không thể tải xuống: %1$s</string>
     <string name="onboarding_ui_customization_pick_from_device">Chọn từ thiết bị</string>
     <string name="onboarding_ui_customization_selected_image">Đã chọn hình ảnh</string>
     <string name="onboarding_ui_customization_selected_video">Đã chọn video</string>
