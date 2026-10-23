@@ -714,11 +714,11 @@ object AppUtils {
         // shell process itself exits with code 0. Carry the command's actual
         // exit status through every route instead of treating empty stdout as
         // success (the old behavior hid failed Close/Resize operations).
-        val wrappedCommand = "$command; __devdex_exit=\\$?; echo __DEVDEX_EXIT_CODE:\\$__devdex_exit"
+        val wrappedCommand = "$command; __devdex_exit=\$?; echo __DEVDEX_EXIT_CODE:\$__devdex_exit"
 
         fun outputLooksSuccessful(output: String?): Boolean {
             if (output.isNullOrBlank()) return false
-            val marker = Regex("""__DEVDEX_EXIT_CODE:(\\d+)""").find(output) ?: return false
+            val marker = Regex("""__DEVDEX_EXIT_CODE:(\d+)""").find(output) ?: return false
             if (marker.groupValues[1] != "0") return false
             val cleanOutput = output.replace(marker.value, "")
             return !Regex("(?i)(error(?::|\\b)|permission denied|not allowed|unknown command|not found|failed|securityexception|exception occurred)")
@@ -732,7 +732,7 @@ object AppUtils {
                 val stderr = process.errorStream.bufferedReader().readText().trim()
                 val stdout = process.inputStream.bufferedReader().readText().trim()
                 if (process.exitValue() == 0 &&
-                    outputLooksSuccessful("$stdout\\n$stderr")
+                    outputLooksSuccessful("$stdout\n$stderr")
                 ) return true
             }
             process.destroyForcibly()
