@@ -505,7 +505,7 @@
     <string name="wallpaper">Обои</string>
     <string name="write_secure">Запись защищённых настроек</string>
     <string name="blocked_notifications_title">Игнорируемые уведомления</string>
-    <string name="youki_sounds">Звуки DevDex</string>
+    <string name="devdex_sounds">Звуки DevDex</string>
     <string name="folder_empty">Папка пуста</string>
     <string name="enable_nav_recents_title">Недавние</string>
     <string name="perf_thermal_desc">Управление производительностью и энергопотреблением ЦП</string>
