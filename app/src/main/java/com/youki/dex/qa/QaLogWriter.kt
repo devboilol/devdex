@@ -9,7 +9,7 @@ import java.util.Locale
 
 /**
  * QaLogWriter — writes the self-test run's log to
- * /storage/emulated/0/Download/YoukiDex/, as a plain human-readable text
+ * /storage/emulated/0/Download/DevDex/, as a plain human-readable text
  * file (one file per run, timestamped) plus a rolling "latest.txt" that
  * always points at the most recent run for convenience.
  *
@@ -22,7 +22,7 @@ import java.util.Locale
 object QaLogWriter {
 
     private const val TAG = "QaLogWriter"
-    private const val DIR_NAME = "YoukiDex"
+    private const val DIR_NAME = "DevDex"
 
     private fun targetDir(): File =
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), DIR_NAME)
@@ -39,7 +39,7 @@ object QaLogWriter {
             val file = File(dir, "qa_log_$stamp.txt")
             file.writeText(
                 buildString {
-                    append("YoukiDex self-test run\n")
+                    append("DevDex self-test run\n")
                     append("Started: ${Date()}\n")
                     append("=".repeat(60)).append("\n\n")
                 }
