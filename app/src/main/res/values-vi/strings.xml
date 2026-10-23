@@ -981,4 +981,6 @@
     <string name="trackpad_mode_otg">Chế độ USB OTG</string>
     <string name="trackpad_status_no_display">Không tìm thấy màn hình phụ</string>
     <string name="trackpad_status_accessibility_needed">Hãy bật dịch vụ Trợ năng của DevDex trong Cài đặt trước.</string>
+    <string name="window_task_not_found">DevDex không xác định được task của cửa sổ này. Hãy cấp quyền Shizuku cho DevDex hoặc dùng “Đóng ứng dụng” nếu muốn kết thúc toàn bộ phiên.</string>
+    <string name="shizuku_permission_required_for_window_close">Shizuku có thể đang chạy nhưng DevDex chưa được cấp quyền. Hãy cho phép DevDex trong Shizuku rồi chạm Đóng lần nữa.</string>
 </resources>
