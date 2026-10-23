@@ -704,46 +704,73 @@ object AppUtils {
         return "am start -n $component --windowingMode $wm --display $displayId --launch-bounds \"$b\""
     }
 
-    fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int) {
-        if (taskId < 0) return
-        val bounds    = makeLaunchBounds(context, mode, dockHeight)
-        val modeCmd   = "am task set-windowing-mode $taskId 5"
-        val resizeCmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
+    /**
+     * Execute a privileged ActivityManager command through the available
+     * shell route. Return a result instead of silently pretending the resize
+     * worked; the window controls use this to choose a safe minimize fallback.
+     */
+    private fun runTaskShellCommand(context: Context, command: String): Boolean {
+        fun outputLooksSuccessful(output: String?): Boolean {
+            if (output == null) return false
+            return !Regex("(?i)(error:|permission denied|not allowed|unknown command|not found|failed)").containsMatchIn(output)
+        }
 
-        // Gap 16: we read stderr instead of the unreliable exitValue()
         try {
-            Runtime.getRuntime().exec(arrayOf("sh", "-c", modeCmd)).waitFor()
-            Thread.sleep(150)
-            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", resizeCmd))
-            p.waitFor()
-            val stderr = p.errorStream.bufferedReader().readText().trim()
-            if (stderr.isEmpty()) return
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+            val finished = process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+            val stderr = process.errorStream.bufferedReader().readText().trim()
+            val stdout = process.inputStream.bufferedReader().readText().trim()
+            if (finished && process.exitValue() == 0 &&
+                outputLooksSuccessful(stderr) && outputLooksSuccessful(stdout)
+            ) return true
+            process.destroyForcibly()
         } catch (e: Exception) {}
 
-        // ShellManager socket (no AIDL) → fallback Shizuku → fallback Root
         try {
             val shell = com.youki.dex.server.ShellManager
-            if (shell.isAvailable) {
-                shell.execSync(modeCmd)
-                Thread.sleep(150)
-                shell.execSync(resizeCmd)
-                return
-            }
+            if (shell.isAvailable && outputLooksSuccessful(shell.execSync(command))) return true
         } catch (e: Exception) {}
 
         try {
             val shizuku = ShizukoManager.getInstance(context)
-            if (shizuku.hasPermission) {
-                shizuku.runShellSync(modeCmd)
-                Thread.sleep(200)
-                shizuku.runShellSync(resizeCmd)
-                return
-            }
+            if (shizuku.hasPermission && outputLooksSuccessful(shizuku.runShellSync(command))) return true
         } catch (e: Exception) {}
 
-        DeviceUtils.runAsRoot(modeCmd)
-        Thread.sleep(150)
-        DeviceUtils.runAsRoot(resizeCmd)
+        return outputLooksSuccessful(DeviceUtils.runAsRoot(command))
+    }
+
+    fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int): Boolean {
+        if (taskId < 0) return false
+        val bounds = makeLaunchBounds(context, mode, dockHeight)
+        val modeCmd = "am task set-windowing-mode $taskId 5"
+        val resizeCmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
+
+        // Changing mode and bounds is two distinct system operations. Don't
+        // claim success based on an empty stderr stream alone; some Android
+        // builds write permission failures to stdout or return non-zero exit.
+        if (runTaskShellCommand(context, modeCmd)) {
+            try { Thread.sleep(150) } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        return runTaskShellCommand(context, resizeCmd)
+    }
+
+    /**
+     * Moves/resizes [taskId] to exactly [bounds] (used by window-controls
+     * minimize/restore). False means the ROM rejected every available
+     * shell route, so callers can fall back to ordinary Android navigation.
+     */
+    fun resizeTaskToBounds(context: Context, taskId: Int, bounds: Rect): Boolean {
+        if (taskId < 0) return false
+        val cmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
+        return runTaskShellCommand(context, cmd)
+    }
+
+    fun resizeTaskToBounds(context: Context, taskId: Int, bounds: Rect): Boolean {
+        if (taskId < 0) return false
+        val cmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
+        return runTaskShellCommand(context, cmd)
     }
 
     /**
