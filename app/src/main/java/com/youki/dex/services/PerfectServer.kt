@@ -294,6 +294,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private var lastGoodDockWidth: Int = 0
     private lateinit var searchEt: EditText
     private lateinit var tasksGv: RecyclerView
+    // Fallback for ROMs that hide UsageStats and third-party task IDs. Recently
+    // launched apps still get a dock icon even when Android won't expose a Task.
+    private val launchedAppFallback = LinkedHashMap<String, AppTask>()
     private lateinit var favoritesGv: RecyclerView
     private lateinit var appsGv: RecyclerView
     private lateinit var wifiManager: WifiManager
@@ -488,6 +491,30 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         return tryLaunchViaShell("am force-stop $pkg")
     }
 
+    /** Remember a successful launch for dock visibility when task APIs are restricted. */
+    private fun rememberLaunchedApp(pkg: String?, app: App?) {
+        if (pkg.isNullOrBlank() || pkg == packageName) return
+        serviceScope.launch(Dispatchers.IO) {
+            val fallback = try {
+                val label = app?.name ?: AppUtils.getPackageLabel(applicationContext, pkg).ifBlank { pkg }
+                val icon = app?.icon ?: packageManager.getApplicationIcon(pkg)
+                AppTask(-1, label, pkg, icon)
+            } catch (e: Exception) {
+                android.util.Log.d("DevDex", "Could not cache a dock icon for $pkg", e)
+                return@launch
+            }
+            withContext(Dispatchers.Main) {
+                launchedAppFallback.remove(pkg)
+                launchedAppFallback[pkg] = fallback
+                val limit = maxOf(1, if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape)
+                while (launchedAppFallback.size > limit) {
+                    launchedAppFallback.remove(launchedAppFallback.keys.firstOrNull())
+                }
+                if (::tasksGv.isInitialized) updateRunningTasks(true)
+            }
+        }
+    }
+
     private fun currentDisplayId(): Int =
         if (secondary) DeviceUtils.getSecondaryDisplay(context)?.displayId ?: Display.DEFAULT_DISPLAY
         else Display.DEFAULT_DISPLAY
@@ -502,7 +529,14 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             displayId = { currentDisplayId() },
             dockHeight = { dockHeight },
             taskIdFor = { pkg, idx -> taskIdForWindow(pkg, idx) },
-            forceStop = { pkg -> forceStopPackage(pkg) },
+            forceStop = { pkg ->
+                val stopped = forceStopPackage(pkg)
+                if (stopped) dockHandler.post {
+                    launchedAppFallback.remove(pkg)
+                    updateRunningTasks(true)
+                }
+                stopped
+            },
             bringToFront = { id -> try { activityManager.moveTaskToFront(id, 0) } catch (e: Exception) {} },
             io = { block -> serviceScope.launch(Dispatchers.IO) { try { block() } catch (e: Exception) {} } }
         )
@@ -1404,7 +1438,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (tasks.size == 1) {
             val taskId = tasks[0].id
             if (taskId == -1) {
-                launchApp(null, app.packageName)
+                if (AppUtils.currentApp == app.packageName) performGlobalAction(GLOBAL_ACTION_HOME)
+                else launchApp(null, app.packageName)
             } else if (windowControls?.restoreIfMinimized(taskId) == true) {
                 // window had been minimized with its title-bar button → restored + raised
             } else {
@@ -1518,11 +1553,13 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             // TYPE_WINDOW_STATE_CHANGED يطلق لما تنقر على نافذة وتعطيها الـ focus
             // هذا يسمح لنا نعرف أي تطبيق "نشط" الآن حتى في الـ freeform
             val pkg = event.packageName?.toString() ?: return
-            if (pkg.isNotEmpty()
-                && pkg != packageName
-                && pkg != AppUtils.getCurrentLauncher(packageManager)
-                && !pkg.contains("com.android.systemui")
-            ) {
+            val launcherPackage = AppUtils.getCurrentLauncher(packageManager)
+            if (pkg == packageName || pkg == launcherPackage) {
+                if (AppUtils.currentApp.isNotEmpty()) {
+                    AppUtils.currentApp = ""
+                    if (::tasksGv.isInitialized) (tasksGv.adapter as? DockAppAdapter)?.notifyDataSetChanged()
+                }
+            } else if (pkg.isNotEmpty() && !pkg.contains("com.android.systemui")) {
                 if (AppUtils.currentApp != pkg) {
                     AppUtils.currentApp = pkg
                     // أعد رسم الـ dock ليظهر الخط العريض تحت التطبيق النشط الجديد
@@ -2095,6 +2132,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     context, packageName, launchMode, dockHeight, displayId
                 )
                 if (shellCmd.isNotEmpty() && tryLaunchViaShell(shellCmd)) {
+                    rememberLaunchedApp(packageName, app)
                     return
                 }
                 // No shell access, or the command failed — fall through to
@@ -2183,6 +2221,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 checkTaskCreatedOrRetry(packageName, launchMode, attempt = 1)
             }
         }
+
+        rememberLaunchedApp(packageName, app)
 
         if (appMenuVisible)
             hideAppMenu()
@@ -3502,6 +3542,20 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     AppUtils.trulyRunningPackages = null
                     AppUtils.getRecentTasks(context, nApps)
                 }
+            }
+
+            // If this ROM hides UsageStats or returns no usable Task IDs, keep
+            // successful launches visible as recent apps instead of leaving an
+            // empty dock. Real task entries always win over these id=-1 hints.
+            val seenPackages = fetchedTasks.mapTo(mutableSetOf()) { it.packageName }
+            val fallbackAdds = launchedAppFallback.values.toList().asReversed()
+                .filter { seenPackages.add(it.packageName) }
+            if (fallbackAdds.isNotEmpty()) {
+                val combined = ArrayList<AppTask>(fallbackAdds.size + fetchedTasks.size)
+                combined.addAll(fallbackAdds)
+                combined.addAll(fetchedTasks)
+                fetchedTasks.clear()
+                fetchedTasks.addAll(combined.take(nApps))
             }
 
             // Build the dock app list (pure in-memory, fast)
