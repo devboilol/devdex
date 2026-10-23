@@ -790,6 +790,88 @@ object AppUtils {
         return runTaskShellCommand(context, "am task remove $taskId")
     }
 
+    /**
+     * Resolve a third-party app task when Android's public ActivityManager
+     * APIs hide it (common on modern Android/desktop modes). Window controls
+     * call this only on an IO thread, never while laying out the overlay.
+     *
+     * Try the same privileged routes used by task removal. Shizuku merely
+     * being installed/running is not enough: DevDex itself must be authorized.
+     */
+    fun findTaskIdViaPrivilegedShell(
+        context: Context,
+        packageName: String,
+        index: Int = 0
+    ): Int {
+        if (!packageName.matches(Regex("[A-Za-z0-9._]+")) || index < 0) return -1
+
+        fun parse(output: String?): List<Int> {
+            if (output.isNullOrBlank()) return emptyList()
+            val ids = linkedSetOf<Int>()
+            val taskIdRegex = Regex("""taskId=(\d+)""")
+            val packageRegex = Regex("""baseIntent=([A-Za-z0-9_.]+)/""")
+
+            // The legacy am stack list output commonly emits taskId and
+            // baseIntent on the same line. Preserve same-package task IDs.
+            output.lineSequence().forEach { line ->
+                val taskId = taskIdRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                val pkg = packageRegex.find(line)?.groupValues?.getOrNull(1)
+                if (taskId != null && pkg == packageName) ids.add(taskId)
+            }
+
+            // Newer Android versions may only expose package/task pairs in
+            // dumpsys ActivityRecord lines, e.g. "pkg/.Activity t123".
+            val activityRecordRegex = Regex(
+                """\b\${Regex.escape(packageName)}/[^\s}]+.*?\bt(\d+)\b"""
+            )
+            output.lineSequence().forEach { line ->
+                activityRecordRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let(ids::add)
+            }
+
+            // Final fallback for dumpsys variants where the task number and
+            // package appear on different lines inside a Task/TaskRecord block.
+            val blocks = Regex(
+                """(?s)(?:TaskRecord|Task)\{.*?(?=(?:TaskRecord|Task)\{|\z)"""
+            )
+            blocks.findAll(output).forEach { match ->
+                val block = match.value
+                if (Regex("""\b\${Regex.escape(packageName)}/""").containsMatchIn(block)) {
+                    Regex("""(?:taskId=|#)(\d+)""").find(block)
+                        ?.groupValues?.getOrNull(1)?.toIntOrNull()?.let(ids::add)
+                }
+            }
+            return ids.toList()
+        }
+
+        val shell = com.youki.dex.server.ShellManager
+        if (shell.isAvailable) {
+            for (command in listOf("am stack list", "dumpsys activity activities")) {
+                try {
+                    val ids = parse(shell.execSync(command))
+                    ids.getOrNull(index)?.let { return it }
+                } catch (e: Exception) {}
+            }
+        }
+
+        val shizuku = ShizukoManager.getInstance(context)
+        if (shizuku.hasPermission) {
+            for (command in listOf("am stack list", "dumpsys activity activities")) {
+                try {
+                    val ids = parse(shizuku.runShellSync(command))
+                    ids.getOrNull(index)?.let { return it }
+                } catch (e: Exception) {}
+            }
+        }
+
+        for (command in listOf("am stack list", "dumpsys activity activities")) {
+            try {
+                val ids = parse(DeviceUtils.runAsRoot(command))
+                ids.getOrNull(index)?.let { return it }
+            } catch (e: Exception) {}
+        }
+        return -1
+    }
+
     private fun execShizukuSync(shizuku: ShizukoManager, cmd: String) {
         try {
             val m = rikka.shizuku.Shizuku::class.java.getDeclaredMethod(
