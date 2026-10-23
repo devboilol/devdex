@@ -43,7 +43,7 @@ class HelpAboutPreferences : Fragment(R.layout.fragment_help_about) {
         devUnlocked = prefs.getBoolean("developer_mode_enabled", false)
 
         view.findViewById<View>(R.id.row_github).setOnClickListener {
-            AppUtils.openUrl(requireContext(), "https://github.com/mrYouki/YoukiDex-Android-Desktop")
+            AppUtils.openUrl(requireContext(), "https://github.com/devboilol/devdex")
         }
         view.findViewById<View>(R.id.row_discord).setOnClickListener {
             AppUtils.openUrl(requireContext(), "https://discord.gg/mKkaMxd5M2")
