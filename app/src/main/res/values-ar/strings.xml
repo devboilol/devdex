@@ -39,7 +39,7 @@
     <string name="shizuku_active_app_detection_title">كشف التطبيق النشط عبر Shizuku</string>
     <string name="shizuku_active_app_detection_summary">يستخدم Shizuku (لما يكون متصل) لمعرفة التطبيق النشط بالواجهة والتطبيقات الشغالة بالخلفية بشكل موثوق، بدل الطريقة الافتراضية المقيّدة</string>
     <string name="shizuku_open">فتح Shizuku</string>
-    <string name="shell_terminal">طرفية Youki Shell</string>
+    <string name="shell_terminal">طرفية DevDex Shell</string>
     <string name="shell_terminal_desc">طرفية مدمجة لتشغيل أوامر الشل مباشرة داخل التطبيق باستخدام Root أو Shizuku.</string>
     <string name="manage">إدارة…</string>
     <string name="grant">منح</string>
