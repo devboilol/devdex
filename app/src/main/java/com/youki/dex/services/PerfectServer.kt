@@ -1978,10 +1978,22 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
      * for this same lookup, added alongside this function).
      */
     private fun findRunningTaskId(packageName: String): Int {
-        val runningTasks = activityManager.getRunningTasks(1)
-        return runningTasks.firstOrNull()
-            ?.takeIf { it.topActivity?.packageName == packageName }
-            ?.id ?: -1
+        // Freeform windows do not always occupy getRunningTasks(1)'s first
+        // slot. Search the visible task list instead of assuming the target
+        // app is the single topmost task; this also keeps Close available
+        // for background and overlapping windows.
+        return try {
+            val runningTasks = activityManager.getRunningTasks(50)
+            runningTasks.firstOrNull { task ->
+                task.topActivity?.packageName == packageName
+            }?.id ?: runningTasks.firstOrNull { task ->
+                task.baseActivity?.packageName == packageName ||
+                    task.origActivity?.packageName == packageName
+            }?.id ?: -1
+        } catch (e: Exception) {
+            android.util.Log.w("DockService", "Could not resolve task for $packageName", e)
+            -1
+        }
     }
 
     private fun tryLaunchViaShell(shellCmd: String): Boolean {
@@ -2029,7 +2041,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             )
                 db.saveLaunchMode(packageName, launchMode)
 
-        val options = AppUtils.makeActivityOptions(context, launchMode, dockHeight, displayId)
+        // OEMs differ in which windowing/display options they permit. If
+        // building the enhanced options itself fails, keep launching with
+        // platform defaults rather than losing the app launch entirely.
+        val options = try {
+            AppUtils.makeActivityOptions(context, launchMode, dockHeight, displayId)
+        } catch (e: Exception) {
+            android.util.Log.w("DockService", "Could not create launch options; using platform defaults", e)
+            android.app.ActivityOptions.makeBasic()
+        }
 
         //Used only for work apps
         if (app != null && app.userHandle != Process.myUserHandle())
@@ -2108,19 +2128,41 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             // icon overlaid (no first frame was ever drawn into it, so the
             // system falls back to its default empty-task representation).
             try {
+                // Start from the requested display/windowing mode first.
+                // A few OEM builds reject ActivityOptions even when the
+                // target app itself is perfectly launchable.
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launchIntent, options.toBundle())
-            } catch (e: Exception) {
-                // ActivityNotFoundException, SecurityException, or any
-                // other launch-time failure — surface it instead of
-                // silently proceeding as if nothing went wrong, and skip
-                // the resize-retry below since there's no Task to resize.
-                android.util.Log.e("DockService", "launchApp failed for $packageName: ${e.message}")
-                Toast.makeText(
-                    this@DockService,
-                    getString(R.string.something_wrong),
-                    Toast.LENGTH_SHORT
-                ).show()
-                return
+            } catch (primaryError: Exception) {
+                android.util.Log.w(
+                    "DockService",
+                    "Launch with requested window options failed for $packageName; retrying with defaults",
+                    primaryError
+                )
+                try {
+                    // Safe fallback: allow Android to open the app normally
+                    // instead of leaving the user with a generic error. Mark
+                    // the effective mode fullscreen so no delayed freeform
+                    // resize is attempted against a launch that used defaults.
+                    val fallbackIntent = Intent(launchIntent)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    val fallbackOptions = android.app.ActivityOptions.makeBasic()
+                    context.startActivity(fallbackIntent, fallbackOptions.toBundle())
+                    launchMode = "fullscreen"
+                    android.util.Log.i("DockService", "Fallback launch succeeded for $packageName")
+                } catch (fallbackError: Exception) {
+                    android.util.Log.e(
+                        "DockService",
+                        "Launch failed with requested and default options for $packageName",
+                        fallbackError
+                    )
+                    Toast.makeText(
+                        this@DockService,
+                        getString(R.string.something_wrong),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return
+                }
             }
 
             if (!wasAlreadyRunning && packageName != null && launchMode != "fullscreen") {
@@ -2179,30 +2221,35 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private fun checkTaskCreatedOrRetry(packageName: String, launchMode: String, attempt: Int) {
         val delayMs = if (attempt == 1) 400L else 800L
         dockHandler.postDelayed({
-            val runningTasks = activityManager.getRunningTasks(1)
-            val taskId = runningTasks.firstOrNull()
-                ?.takeIf { it.topActivity?.packageName == packageName }
-                ?.id ?: -1
+            // A freeform task can remain visible without being Android's
+            // single top task. Look through the accessible task list before
+            // deciding whether launch succeeded.
+            val runningTasks = try {
+                activityManager.getRunningTasks(50)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            val taskId = runningTasks.firstOrNull { it.topActivity?.packageName == packageName }?.id
+                ?: runningTasks.firstOrNull {
+                    it.baseActivity?.packageName == packageName ||
+                        it.origActivity?.packageName == packageName
+                }?.id
+                ?: -1
             when {
                 taskId != -1 -> AppUtils.resizeTask(context, launchMode, taskId, dockHeight)
                 attempt == 1 -> checkTaskCreatedOrRetry(packageName, launchMode, attempt = 2)
                 else -> {
-                    // Both checks failed — this is the "app completely
-                    // fails to open" half of the user report, distinct from
-                    // launchApp's own startActivity try/catch (that one
-                    // catches startActivity() itself throwing; this catches
-                    // it returning normally but the system never actually
-                    // finishing Task creation, e.g. the new process getting
-                    // OOM-killed a moment later on a 3GB-RAM device).
-                    // Nothing to resize, and silently doing nothing here is
-                    // exactly the "app just didn't open, with no
-                    // explanation" behavior being reported — so tell the
-                    // user plainly instead.
-                    Toast.makeText(
-                        this@DockService,
-                        getString(R.string.something_wrong),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // Task visibility is restricted on recent Android
+                    // releases and OEM builds, especially for floating
+                    // windows. Failure to observe a task is not proof
+                    // that launch failed; a generic toast here was firing
+                    // for apps that had opened successfully. Keep the
+                    // evidence in Logcat, but only surface an error when
+                    // startActivity itself fails above.
+                    android.util.Log.w(
+                        "DockService",
+                        "Could not verify task for $packageName after launch; suppressing possibly false error toast"
+                    )
                 }
             }
         }, delayMs)
