@@ -669,7 +669,7 @@
     <string name="enter_source_name">输入网站名称</string>
     <string name="plugin_font_none">无自定义字体 — 使用默认字体</string>
     <string name="share_display_info">分享显示信息</string>
-    <string name="youki_sounds">DevDex 声音</string>
+    <string name="devdex_sounds">DevDex 声音</string>
     <string name="bluetooth_already_granted">蓝牙权限已授予</string>
     <string name="device_admin_already_enabled">%1$s 已启用</string>
     <string name="tweak_amoled_title">Amoled 和 HDR 显示增强</string>
