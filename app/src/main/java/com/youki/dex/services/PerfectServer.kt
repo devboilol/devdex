@@ -529,14 +529,6 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             displayId = { currentDisplayId() },
             dockHeight = { dockHeight },
             taskIdFor = { pkg, idx -> taskIdForWindow(pkg, idx) },
-            forceStop = { pkg ->
-                val stopped = forceStopPackage(pkg)
-                if (stopped) dockHandler.post {
-                    launchedAppFallback.remove(pkg)
-                    updateRunningTasks(true)
-                }
-                stopped
-            },
             bringToFront = { id -> try { activityManager.moveTaskToFront(id, 0) } catch (e: Exception) {} },
             io = { block -> serviceScope.launch(Dispatchers.IO) { try { block() } catch (e: Exception) {} } }
         )
