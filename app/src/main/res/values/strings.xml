@@ -444,7 +444,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="bubble_mode_custom">Custom Color</string>
 
     <string name="system_sounds">System UI Sounds</string>
-    <string name="youki_sounds">DevDex Sounds</string>
+    <string name="devdex_sounds">DevDex Sounds</string>
     <string name="sound_lock">Lock</string>
     <string name="sound_unlock">Unlock</string>
     <string name="sound_low_battery">Low Battery</string>
