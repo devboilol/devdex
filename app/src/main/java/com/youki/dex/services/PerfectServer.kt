@@ -482,10 +482,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         return try { findRunningTaskId(packageName) } catch (e: Exception) { -1 }
     }
 
-    private fun forceStopPackage(pkg: String) {
-        // package names are [A-Za-z0-9._]; refuse anything else before it reaches a shell
-        if (!pkg.matches(Regex("[A-Za-z0-9._]+"))) return
-        tryLaunchViaShell("am force-stop $pkg")
+    private fun forceStopPackage(pkg: String): Boolean {
+        // Package names are [A-Za-z0-9._]; reject anything else before it reaches a shell.
+        if (!pkg.matches(Regex("[A-Za-z0-9._]+"))) return false
+        return tryLaunchViaShell("am force-stop $pkg")
     }
 
     private fun currentDisplayId(): Int =
@@ -1444,9 +1444,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             val tasksLv = view.findViewById<ListView>(R.id.tasks_lv)
             tasksLv.adapter = AppTaskAdapter(context, tasks)
             tasksLv.setOnItemClickListener { adapterView, _, position, _ ->
-                activityManager.moveTaskToFront(
-                    (adapterView.getItemAtPosition(position) as AppTask).id, 0
-                )
+                val selectedTaskId = (adapterView.getItemAtPosition(position) as AppTask).id
+                if (windowControls?.restoreIfMinimized(selectedTaskId) != true) {
+                    activityManager.moveTaskToFront(selectedTaskId, 0)
+                }
                 removePopup(view)
             }
             addPopup(view, layoutParams)
@@ -1997,25 +1998,28 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun tryLaunchViaShell(shellCmd: String): Boolean {
+        fun commandFailed(output: String?): Boolean =
+            output?.let { Regex("(?i)(error:|permission denied|not allowed|unknown command|not found|failed)").containsMatchIn(it) } == true
+
         try {
             val shell = com.youki.dex.server.ShellManager
             if (shell.isAvailable) {
-                shell.execSync(shellCmd)
-                return true
+                val output = shell.execSync(shellCmd)
+                if (!commandFailed(output)) return true
             }
         } catch (e: Exception) {}
 
         try {
             val shizuku = ShizukoManager.getInstance(this)
             if (shizuku.hasPermission) {
-                shizuku.runShellSync(shellCmd)
-                return true
+                val output = shizuku.runShellSync(shellCmd)
+                if (!commandFailed(output)) return true
             }
         } catch (e: Exception) {}
 
         return try {
-            DeviceUtils.runAsRoot(shellCmd)
-            true
+            val output = DeviceUtils.runAsRoot(shellCmd)
+            !output.equals("error", ignoreCase = true) && !commandFailed(output)
         } catch (e: Exception) {
             false
         }
@@ -2886,8 +2890,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 removePopup(view)
                 val targetPackage = app.packageName
                 serviceScope.launch(Dispatchers.IO) {
-                    forceStopPackage(targetPackage)
+                    val stopped = forceStopPackage(targetPackage)
                     withContext(Dispatchers.Main) {
+                        if (!stopped) {
+                            Toast.makeText(context, R.string.close_app_privilege_required, Toast.LENGTH_SHORT).show()
+                        }
                         dockHandler.postDelayed({ updateRunningTasks(true) }, 400)
                     }
                 }
