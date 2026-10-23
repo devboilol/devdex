@@ -585,7 +585,7 @@
     <string name="add_to">Ekle…</string>
     <string name="choose_apps">Uygulamaları seç</string>
     <string name="enable_new_instance">Yeni bir pencere başlatmak için Alt+Shift+N</string>
-    <string name="youki_sounds">DevDex sesleri</string>
+    <string name="devdex_sounds">DevDex sesleri</string>
     <string name="top">Üst</string>
     <string name="always_floating_title">Her zaman kayan pencere olarak aç</string>
     <string name="failed">Başarısız</string>
