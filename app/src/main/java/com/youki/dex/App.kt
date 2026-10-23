@@ -84,7 +84,7 @@ class App : Application() {
             // the app from hammering itself on every device unlock/boot.
             val uptime = System.currentTimeMillis() - prefs.getLong(PREF_LAST_START_TIME, 0L)
             if (uptime < CRASH_LOOP_THRESHOLD_MS) {
-                android.util.Log.e("YoukiDex", "Crash loop detected (uptime ${uptime}ms) — skipping auto-restart")
+                android.util.Log.e("DevDex", "Crash loop detected (uptime ${uptime}ms) — skipping auto-restart")
                 Process.killProcess(Process.myPid())
                 exitProcess(2)
                 return@setDefaultUncaughtExceptionHandler
