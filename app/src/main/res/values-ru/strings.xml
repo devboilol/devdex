@@ -64,7 +64,7 @@
     <string name="beta_experimental_ui">Экспериментальный интерфейс</string>
     <string name="sound_charge_complete">Зарядка завершена</string>
     <string name="lock_landscape_summary">Всегда держать экран в альбомной ориентации (рекомендуется для использования рабочего стола)</string>
-    <string name="shell_terminal">Терминал оболочки Youki</string>
+    <string name="shell_terminal">Терминал оболочки DevDex</string>
     <string name="tweak_touch_desc">Улучшить чувствительность к касанию для ощущения, похожего на iPhone</string>
     <string name="unknown">Неизвестно</string>
     <string name="font_installed">Шрифт установлен: %1$s</string>
