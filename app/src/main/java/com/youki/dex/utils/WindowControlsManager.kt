@@ -63,6 +63,7 @@ class WindowControlsManager(
         var pkg: String = ""
         var windowBounds = Rect()
         var taskId = -1
+        var taskIndex = 0
         var isMax = false
         var shownAtX = Int.MIN_VALUE
         var shownAtY = Int.MIN_VALUE
@@ -235,6 +236,7 @@ class WindowControlsManager(
                 pill.pkg = c.pkg
                 pill.windowBounds = Rect(c.bounds)
                 pill.taskId = taskId
+                pill.taskIndex = idx
                 val statusish = DeviceUtils.getStatusBarHeight(ctx)
                 pill.isMax = c.bounds.width() >= dispW - dp(8) &&
                     c.bounds.top <= statusish + dp(8) &&
@@ -394,15 +396,34 @@ class WindowControlsManager(
     }
 
     private fun onClose(p: Pill) {
-        val taskId = p.taskId
-        minimized.remove(taskId)
-        homeMinimized.remove(taskId)
+        val originalTaskId = p.taskId
+        val pkg = p.pkg
+        val taskIndex = p.taskIndex
+        minimized.remove(originalTaskId)
+        homeMinimized.remove(originalTaskId)
         io {
-            // Close Window removes this task only. It must not force-stop the
-            // whole package; use the separate taskbar Close app action for that.
+            // Android may hide third-party freeform tasks from ActivityManager.
+            // Resolve through ShellManager/Shizuku/Root before deciding that no
+            // task can be closed. Never force-stop the package here: Close Window
+            // must not terminate the whole app session.
+            val taskId = if (originalTaskId != -1) originalTaskId
+                else AppUtils.findTaskIdViaPrivilegedShell(ctx, pkg, taskIndex)
             val closed = taskId != -1 && AppUtils.closeTask(ctx, taskId)
             handler.post {
-                if (!closed) Toast.makeText(ctx, R.string.window_control_privilege_required, Toast.LENGTH_SHORT).show()
+                if (!closed) {
+                    val shizuku = ShizukoManager.getInstance(ctx)
+                    if (!shizuku.hasPermission) {
+                        // Running Shizuku doesn't automatically authorize DevDex.
+                        // Ask Shizuku to grant this app access, rather than
+                        // presenting a generic failure and leaving the user stuck.
+                        shizuku.requestPermission()
+                        Toast.makeText(ctx, R.string.shizuku_permission_required_for_window_close, Toast.LENGTH_LONG).show()
+                    } else if (taskId == -1) {
+                        Toast.makeText(ctx, R.string.window_task_not_found, Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(ctx, R.string.window_control_privilege_required, Toast.LENGTH_LONG).show()
+                    }
+                }
                 handler.postDelayed({ scheduleUpdate() }, 350)
             }
         }
