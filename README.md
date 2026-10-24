@@ -23,6 +23,9 @@
 
 **DevDex** is an independent continuation of the Android desktop experience built on the work of **YoukiDex** and **Smart Dock**. It brings a taskbar, app dock, movable/resizable app windows, and desktop-style controls to Android. DevDex focuses on a desktop-first setup, window-management improvements, localization, and portable settings backups.
 
+### Release status
+DevDex is preparing a Release Candidate (RC). CI APKs are test artifacts; a downloadable GitHub pre-release is published only from a version tag when stable signing is configured. See the [Release Candidate flow](docs/RELEASE_CANDIDATE_FLOW.md) for the go/no-go checklist.
+
 ### Highlights
 
 - Desktop-style taskbar and app dock.
@@ -79,6 +82,9 @@ DevDex is an independent continuation and is **not an official release** of Smar
 ### Giới thiệu
 
 **DevDex** là dự án tiếp nối độc lập từ nền tảng Android desktop được phát triển qua **YoukiDex** và **Smart Dock**. Ứng dụng mang đến thanh tác vụ, dock ứng dụng, cửa sổ có thể di chuyển/thay đổi kích thước và các điều khiển kiểu desktop trên Android. DevDex tập trung cải thiện trải nghiệm khởi động vào desktop, quản lý cửa sổ, đa ngôn ngữ và sao lưu cài đặt.
+
+### Trạng thái phát hành
+DevDex đang chuẩn bị bản Release Candidate (RC). APK từ CI là bản kiểm thử; GitHub pre-release chỉ được xuất bản từ tag phiên bản khi đã cấu hình khóa ký ổn định. Xem [quy trình RC](docs/RELEASE_CANDIDATE_FLOW.md) để kiểm tra điều kiện phát hành.
 
 ### Tính năng chính
 
