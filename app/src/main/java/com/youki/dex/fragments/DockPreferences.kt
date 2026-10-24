@@ -134,8 +134,8 @@ class DockPreferences : PreferenceFragmentCompat() {
 
         // Window controls opacity: keep the value as a string, matching the
         // existing SliderPreference convention used by handle_opacity.
-        val windowControlsOpacity = findPreference<SliderPreference>("window_controls_opacity")
-        windowControlsOpacity?.setOnDialogShownListener(object : SliderPreference.OnDialogShownListener {
+        val windowControlsOpacity = findPreference<SliderPreference>("window_controls_opacity")!!
+        windowControlsOpacity.setOnDialogShownListener(object : SliderPreference.OnDialogShownListener {
             override fun onDialogShown() {
                 val slider = windowControlsOpacity.slider
                 slider.isTickVisible = false
