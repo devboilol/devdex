@@ -179,10 +179,11 @@ object DeviceUtils {
             // Do not use immersive.full: it also hides navigation and can force
             // gesture-navigation devices into a different navigation mode.
             if (hide) policies.add("immersive.status=*")
+            val policy = policies.joinToString(",")
             android.provider.Settings.Global.putString(
                 resolver,
                 "policy_control",
-                policies.joinToString(",").ifEmpty { null }
+                if (policy.isEmpty()) null else policy
             )
         } catch (e: Exception) {}
     }
