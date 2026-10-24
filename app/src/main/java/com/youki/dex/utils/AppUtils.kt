@@ -451,7 +451,12 @@ object AppUtils {
             return options
         }
 
-        if (Build.VERSION.SDK_INT >= 26) options.setLaunchDisplayId(display)
+        // The built-in display is the default. Explicitly setting display 0 is
+        // redundant and has caused launch quirks on some OEM builds; only override
+        // the display when the user actually chose a secondary display.
+        if (Build.VERSION.SDK_INT >= 26 && display != Display.DEFAULT_DISPLAY) {
+            options.setLaunchDisplayId(display)
+        }
 
         // HarmonyOS 5+: freeform windowing is not supported — return basic options with bounds only
         if (DeviceUtils.isPureHarmonyOS()) {
