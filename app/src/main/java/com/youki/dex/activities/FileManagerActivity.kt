@@ -77,6 +77,7 @@ class FileManagerActivity : AppCompatActivity() {
     private var sortMode = 0
     private var searchQuery = ""
     private var permissionPromptShown = false
+    private var hasResumedOnce = false
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,6 +95,10 @@ class FileManagerActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!hasResumedOnce) {
+            hasResumedOnce = true
+            return // onCreate already starts the first listing; avoid racing it with a second scan.
+        }
         if (::storageRoot.isInitialized) {
             if (hasStorageAccess()) refreshFiles() else renderPermissionState()
         }
@@ -500,7 +505,7 @@ class FileManagerActivity : AppCompatActivity() {
 
     private fun showDetails(file: File) {
         val date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(file.lastModified()))
-        val size = if (file.isDirectory) getString(R.string.fm_internal_storage) else formatSize(file.length())
+        val size = if (file.isDirectory) getString(R.string.fm_folder) else formatSize(file.length())
         MaterialAlertDialogBuilder(this)
             .setTitle(file.name)
             .setMessage(getString(R.string.fm_file_details, file.absolutePath, size, date))
@@ -609,17 +614,28 @@ class FileManagerActivity : AppCompatActivity() {
         if (files.isEmpty()) return
         runFileOperation {
             val output = File(currentDirectory, "DevDex_" + System.currentTimeMillis() + ".zip")
-            var count = 0
-            ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
-                files.forEach { file -> if (isWithinRoot(file) && file != output) { addToZip(zip, file, file.name); count++ } }
+            try {
+                var count = 0
+                ZipOutputStream(BufferedOutputStream(FileOutputStream(output))).use { zip ->
+                    files.forEach { file ->
+                        if (isWithinRoot(file) && file != output) {
+                            addToZip(zip, file, file.name)
+                            count++
+                        }
+                    }
+                }
+                if (count == 0) { output.delete(); 0 } else count
+            } catch (e: Exception) {
+                // Never leave a misleading half-written archive after I/O failure.
+                output.delete()
+                throw e
             }
-            if (count == 0) { output.delete(); 0 } else count
         }
     }
 
     private fun addToZip(zip: ZipOutputStream, file: File, name: String) {
         if (file.isDirectory) {
-            val children = file.listFiles() ?: return
+            val children = file.listFiles() ?: throw java.io.IOException("Could not read directory")
             if (children.isEmpty()) {
                 zip.putNextEntry(ZipEntry(name.trimEnd('/') + "/"))
                 zip.closeEntry()
@@ -691,7 +707,7 @@ class FileManagerActivity : AppCompatActivity() {
             val file = items[position]
             val ctx = holder.itemView.context
             holder.name.text = file.name.ifBlank { ctx.getString(R.string.fm_internal_storage) }
-            holder.size.text = if (file.isDirectory) ctx.getString(R.string.fm_internal_storage) else fileSize(file.length())
+            holder.size.text = if (file.isDirectory) ctx.getString(R.string.fm_folder) else fileSize(file.length())
             holder.date.text = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(file.lastModified()))
             holder.icon.setImageResource(if (file.isDirectory) android.R.drawable.ic_menu_agenda else when (file.extension.lowercase(Locale.getDefault())) {
                 "jpg", "jpeg", "png", "gif", "webp", "bmp" -> android.R.drawable.ic_menu_gallery
