@@ -2159,7 +2159,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (
             launchMode != "fullscreen" &&
             displayId == Display.DEFAULT_DISPLAY &&
-            !packageManager.hasSystemFeature(PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT) &&
+            !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT) &&
             !AppUtils.isExperimentalFreeformEnabled(context)
         ) {
             val noticeKey = "_devdex_freeform_compatibility_notice_shown"
