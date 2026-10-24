@@ -440,13 +440,18 @@ object AppUtils {
         }
 
         val options = ActivityOptions.makeBasic()
-        if (Build.VERSION.SDK_INT >= 26) options.setLaunchDisplayId(display)
 
-        // FULLSCREEN — simple, works on all API levels
+        // Fullscreen on the built-in display should use Android's normal launch
+        // path. Forcing hidden setLaunchWindowingMode(1) and explicitly targeting
+        // display 0 adds no value, and some OEM builds mishandle that combination.
         if (mode == "fullscreen") {
-            setWindowingMode(options, WINDOWING_MODE_FULLSCREEN)
+            if (Build.VERSION.SDK_INT >= 26 && display != Display.DEFAULT_DISPLAY) {
+                options.setLaunchDisplayId(display)
+            }
             return options
         }
+
+        if (Build.VERSION.SDK_INT >= 26) options.setLaunchDisplayId(display)
 
         // HarmonyOS 5+: freeform windowing is not supported — return basic options with bounds only
         if (DeviceUtils.isPureHarmonyOS()) {

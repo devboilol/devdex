@@ -2212,7 +2212,13 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 // A few OEM builds reject ActivityOptions even when the
                 // target app itself is perfectly launchable.
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launchIntent, options.toBundle())
+                if (launchMode == "fullscreen" && displayId == Display.DEFAULT_DISPLAY) {
+                    // Let Android/HyperOS launch this Activity exactly as its own
+                    // launcher would. No hidden windowing mode or display override.
+                    context.startActivity(launchIntent)
+                } else {
+                    context.startActivity(launchIntent, options.toBundle())
+                }
             } catch (primaryError: Exception) {
                 android.util.Log.w(
                     "DockService",
@@ -2226,8 +2232,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     // resize is attempted against a launch that used defaults.
                     val fallbackIntent = Intent(launchIntent)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    val fallbackOptions = android.app.ActivityOptions.makeBasic()
-                    context.startActivity(fallbackIntent, fallbackOptions.toBundle())
+                    // The fallback should be as close as possible to a normal launcher
+                    // tap; avoid passing an empty options bundle to OEM ActivityTaskManager.
+                    context.startActivity(fallbackIntent)
                     launchMode = "fullscreen"
                     android.util.Log.i("DockService", "Fallback launch succeeded for $packageName")
                 } catch (fallbackError: Exception) {

@@ -69,6 +69,7 @@ class WindowControlsManager(
         var isMax = false
         var shownAtX = Int.MIN_VALUE
         var shownAtY = Int.MIN_VALUE
+        var missingSince = 0L
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -190,13 +191,26 @@ class WindowControlsManager(
                     // re-read the live package, and invalidate caption detection
                     // when an ID now belongs to a different package; stale cached
                     // identities were one source of orphan close buttons.
-                    var root: android.view.accessibility.AccessibilityNodeInfo? = w.root
+                    // Accessibility roots can briefly be null while HyperOS switches a
+                    // task between fullscreen and freeform. Do not tear down a working
+                    // control pill for one transient null package name.
+                    var root: android.view.accessibility.AccessibilityNodeInfo? =
+                        try { w.root } catch (e: Exception) { null }
                     val livePkg = root?.packageName?.toString()
                     if (livePkg.isNullOrBlank()) {
+                        val previous = pills[w.id]
+                        if (previous != null && previous.pkg.isNotBlank() &&
+                            previous.pkg != ctx.packageName
+                        ) {
+                            seenIds.add(w.id)
+                            pkgCache[w.id] = previous.pkg
+                            cands.add(Cand(w.id, w.layer, b, previous.pkg))
+                        } else {
+                            pkgCache.remove(w.id)
+                            nativeCaptionCache.remove(w.id)
+                        }
                         try { root?.recycle() } catch (e: Exception) {}
                         root = null
-                        pkgCache.remove(w.id)
-                        nativeCaptionCache.remove(w.id)
                         continue
                     }
                     if (pkgCache[w.id] != livePkg) nativeCaptionCache.remove(w.id)
@@ -276,14 +290,15 @@ class WindowControlsManager(
                 val taskId = if (resolvedTaskId >= 0) resolvedTaskId
                     else previousPill?.taskId?.takeIf { it >= 0 } ?: -1
 
-                // Only suppress an unidentifiable window when DevDex has never
-                // managed it. Previously managed windows keep their controls during
-                // transient ActivityManager/Accessibility task-list gaps.
-                if (taskId < 0) continue
-                if (!seenTaskIds.add(taskId)) continue
+                // A missing task ID must not hide the visible controls. HyperOS may
+                // withhold getRunningTasks() results even while its freeform task is
+                // on screen. Keep the pill and resolve the task through Shizuku/shell
+                // only when the user invokes Close or Resize.
+                if (taskId >= 0 && !seenTaskIds.add(taskId)) continue
 
                 val pill = pills.getOrPut(c.id) { createPill() }
                 alive.add(c.id)
+                pill.missingSince = 0L
                 pill.pkg = c.pkg
                 pill.windowBounds = Rect(c.bounds)
                 // Apply to the complete control group so the background and both icons
@@ -307,21 +322,25 @@ class WindowControlsManager(
                 // window so it tracks both portrait and landscape geometry.
                 val x = (c.bounds.left + (c.bounds.width() - pw) / 2)
                     .coerceIn(0, (dispW - pw).coerceAtLeast(0))
-                val topDockOffset = if (
-                    DockPositionUtils.get(prefs) == DockPositionUtils.Position.TOP &&
-                    c.bounds.top < dockHeightPx
-                ) dockHeightPx + dp(2) else c.bounds.top + dp(2)
-                val y = topDockOffset.coerceIn(0, (dispH - pillH).coerceAtLeast(0))
+                val desiredY = (c.bounds.top + dp(2)).coerceIn(0, (dispH - pillH).coerceAtLeast(0))
+                val desiredRect = Rect(x, desiredY, x + pw, desiredY + pillH)
+                // If the normal title-bar position intersects the dock, move the
+                // controls just outside the dock's actual exclusion bounds. Using
+                // dockHeight alone here left an 8dp overlap and hid the whole pill.
+                val y = if (Rect.intersects(dockBounds, desiredRect)) {
+                    if (DockPositionUtils.get(prefs) == DockPositionUtils.Position.TOP) {
+                        (dockBounds.bottom + dp(2)).coerceIn(0, (dispH - pillH).coerceAtLeast(0))
+                    } else {
+                        (dockBounds.top - pillH - dp(2)).coerceIn(0, (dispH - pillH).coerceAtLeast(0))
+                    }
+                } else desiredY
 
-                // Never leave a control half-hidden behind the dock. That used to
-                // expose just the top of a pill (including its X), with touches
-                // intercepted by the dock underneath.
                 val pillRect = Rect(x, y, x + pw, y + pillH)
-                val underDock = Rect.intersects(dockBounds, pillRect)
+                val stillUnderDock = Rect.intersects(dockBounds, pillRect)
                 val coveredByWindow = sorted.any { o ->
                     o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect)
                 }
-                val covered = underDock || coveredByWindow
+                val covered = stillUnderDock || coveredByWindow
 
                 pill.view.visibility = if (covered) View.GONE else View.VISIBLE
                 pill.params.x = x
@@ -335,12 +354,27 @@ class WindowControlsManager(
                 pill.maxBtn.invalidate()
             }
 
-            // drop pills of windows that are gone
+            // Keep controls through short HyperOS accessibility gaps, then clean
+            // up stale windows. Re-schedule during the grace period because some
+            // ROMs do not emit another accessibility event after a transient gap.
+            val now = System.currentTimeMillis()
+            var retryCleanup = false
             val iter = pills.entries.iterator()
             while (iter.hasNext()) {
                 val e = iter.next()
-                if (e.key !in alive) { safeRemove(e.value); iter.remove() }
+                if (e.key in alive) {
+                    e.value.missingSince = 0L
+                } else {
+                    if (e.value.missingSince == 0L) e.value.missingSince = now
+                    if (now - e.value.missingSince >= 1200L) {
+                        safeRemove(e.value)
+                        iter.remove()
+                    } else {
+                        retryCleanup = true
+                    }
+                }
             }
+            if (retryCleanup) handler.postDelayed({ scheduleUpdate(immediate = true) }, 250)
             // forget minimized tasks that no longer exist anywhere is not possible
             // without a task list here — they are cleared when restored/closed.
         } catch (e: Exception) {
@@ -377,7 +411,7 @@ class WindowControlsManager(
                     val inCaptionBand = nodeBounds.top >= windowBounds.top - dp(4) &&
                         nodeBounds.top <= windowBounds.top + dp(72) &&
                         nodeBounds.bottom <= windowBounds.top + dp(104)
-                    if (inCaptionBand) {
+                    if (inCaptionBand && node.isVisibleToUser && node.isClickable && node.isEnabled) {
                         when (id) {
                             "close_window", "caption_close_window" -> hasClose = true
                             "maximize_window", "caption_maximize_window",
@@ -501,10 +535,7 @@ class WindowControlsManager(
     }
 
     private fun showResizeMenu(p: Pill) {
-        if (p.taskId < 0) {
-            Toast.makeText(ctx, R.string.window_task_not_found, Toast.LENGTH_SHORT).show()
-            return
-        }
+        // The menu remains available even when ActivityManager temporarily hides task IDs.
         // The square button beside Close opens both sizing presets and opacity.
         val menu = PopupMenu(ctx, p.maxBtn)
         menu.menu.add(0, 25, 0, ctx.getString(R.string.window_resize_25))
@@ -605,13 +636,28 @@ class WindowControlsManager(
     }
 
     private fun onResizePreset(p: Pill, percent: Int) {
-        val taskId = p.taskId
-        if (taskId < 0) return
+        val originalTaskId = p.taskId
+        val pkg = p.pkg
+        val taskIndex = p.taskIndex
         val dh = dockHeight()
         val targetDisplayId = displayId()
         io {
-            val resized = AppUtils.resizeTaskToPreset(ctx, taskId, percent, dh, targetDisplayId)
+            var taskId = if (originalTaskId >= 0) originalTaskId
+                else AppUtils.findTaskIdViaPrivilegedShell(ctx, pkg, taskIndex)
+            var resized = taskId >= 0 &&
+                AppUtils.resizeTaskToPreset(ctx, taskId, percent, dh, targetDisplayId)
+
+            // ActivityManager may give a stale ID during a windowing transition.
+            // Re-resolve the package once before declaring the resize unsupported.
+            if (!resized) {
+                val refreshedTaskId = AppUtils.findTaskIdViaPrivilegedShell(ctx, pkg, taskIndex)
+                if (refreshedTaskId >= 0 && refreshedTaskId != taskId) {
+                    taskId = refreshedTaskId
+                    resized = AppUtils.resizeTaskToPreset(ctx, taskId, percent, dh, targetDisplayId)
+                }
+            }
             handler.post {
+                if (taskId >= 0) p.taskId = taskId
                 if (!resized) {
                     Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
                 }
