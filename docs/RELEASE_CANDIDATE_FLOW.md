@@ -32,6 +32,7 @@ The **Build APK** workflow supports three paths:
 
 - **Pull request / main branch:** run `testDebugUnitTest` and build a debug APK for CI validation.
 - **Run workflow manually:** choose an explicit version such as `3.5.0-rc.1`; download the generated artifact from the run.
+- **Push a branch named `release/<version>`:** for example, `release/3.5.0-rc.1` automatically builds a version-labelled candidate artifact for physical-device testing without publishing a release.
 - **Push a tag matching `v*-rc.*`:** use the tag as the version, build the candidate and publish a GitHub pre-release only when the stable signing key is configured.
 
 Every build should include the APK, SHA-256 checksums and build metadata (version, commit SHA and Actions run). The package ID remains `com.youki.dex` for compatibility with existing installations.
