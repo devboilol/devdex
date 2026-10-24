@@ -189,12 +189,10 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     override fun onStart() {
         super.onStart()
         activityStarted = true
-        if (areDesktopWidgetsEnabled()) {
-            widgetManager?.start()
-            // The initial global-layout callback handles first launch. Once the
-            // desktop has settled, rebuild widget views when returning from Settings.
-            if (desktopInitialLayoutComplete) loadDesktopApps()
-        }
+        if (areDesktopWidgetsEnabled()) widgetManager?.start()
+        // The initial global-layout callback handles first launch. Once the desktop
+        // has settled, rebuild when returning from Settings, including after disabling widgets.
+        if (desktopInitialLayoutComplete) loadDesktopApps()
     }
 
     override fun onStop() {
@@ -290,7 +288,9 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         if (key == "experimental_desktop_widgets") {
             if (areDesktopWidgetsEnabled() && activityStarted) widgetManager?.start()
             else widgetManager?.stop()
-            if (::desktopContainer.isInitialized) loadDesktopApps()
+            // Preferences can change while this Activity is behind Settings. Defer
+            // rebuilding until onStart rather than creating host views while invisible.
+            if (activityStarted && desktopInitialLayoutComplete) loadDesktopApps()
         }
     }
 
