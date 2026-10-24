@@ -170,11 +170,20 @@ class WindowControlsManager(
                     if (b.width() <= 0 || b.height() <= 0) continue
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
-                    // Fullscreen activities (for example Android Settings) should
-                    // keep a clean screen. A maximized desktop window normally leaves
-                    // room for the taskbar, so it does not meet both thresholds.
+                    // Avoid decorating unrelated fullscreen activities, but preserve
+                    // controls for a window DevDex was already managing. In particular,
+                    // the "Full screen" preset must not make the Close button disappear.
                     if (b.width() >= dispW * 0.94f && b.height() >= dispH * 0.94f) {
                         seenIds.add(w.id)
+                        val root = try { w.root } catch (e: Exception) { null }
+                        val livePkg = root?.packageName?.toString()
+                        try { root?.recycle() } catch (e: Exception) {}
+                        val alreadyManaged = !livePkg.isNullOrBlank() &&
+                            livePkg != ctx.packageName &&
+                            (pills[w.id]?.pkg == livePkg || pills.values.any { it.pkg == livePkg })
+                        if (alreadyManaged) {
+                            cands.add(Cand(w.id, w.layer, b, livePkg!!))
+                        }
                         continue
                     }
                     // Window IDs can be recycled by Android between apps. Always
@@ -258,11 +267,18 @@ class WindowControlsManager(
             for (c in sorted) {
                 val idx = perPkgCount.getOrDefault(c.pkg, 0)
                 perPkgCount[c.pkg] = idx + 1
-                val taskId = taskIdFor(c.pkg, idx)
+                val resolvedTaskId = taskIdFor(c.pkg, idx)
+                // Window/task IDs can temporarily become unavailable while Android
+                // changes windowing mode. Reuse the last known task for this same
+                // package/window slot rather than removing the whole control group.
+                val previousPill = pills[c.id]?.takeIf { it.pkg == c.pkg }
+                    ?: pills.values.firstOrNull { it.pkg == c.pkg && it.taskIndex == idx }
+                val taskId = if (resolvedTaskId >= 0) resolvedTaskId
+                    else previousPill?.taskId?.takeIf { it >= 0 } ?: -1
 
-                // Do not show controls for an unidentified task. Those controls
-                // cannot resize and often cannot close anything, which looks like
-                // an intermittent "ghost X" to the user.
+                // Only suppress an unidentifiable window when DevDex has never
+                // managed it. Previously managed windows keep their controls during
+                // transient ActivityManager/Accessibility task-list gaps.
                 if (taskId < 0) continue
                 if (!seenTaskIds.add(taskId)) continue
 
@@ -291,7 +307,11 @@ class WindowControlsManager(
                 // window so it tracks both portrait and landscape geometry.
                 val x = (c.bounds.left + (c.bounds.width() - pw) / 2)
                     .coerceIn(0, (dispW - pw).coerceAtLeast(0))
-                val y = (c.bounds.top + dp(2)).coerceIn(0, (dispH - pillH).coerceAtLeast(0))
+                val topDockOffset = if (
+                    DockPositionUtils.get(prefs) == DockPositionUtils.Position.TOP &&
+                    c.bounds.top < dockHeightPx
+                ) dockHeightPx + dp(2) else c.bounds.top + dp(2)
+                val y = topDockOffset.coerceIn(0, (dispH - pillH).coerceAtLeast(0))
 
                 // Never leave a control half-hidden behind the dock. That used to
                 // expose just the top of a pill (including its X), with touches
