@@ -18,7 +18,11 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.LinearLayout
 import android.widget.PopupMenu
+import android.widget.PopupWindow
+import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
+import java.util.Locale
 import com.youki.dex.R
 
 /**
@@ -481,18 +485,102 @@ class WindowControlsManager(
             Toast.makeText(ctx, R.string.window_task_not_found, Toast.LENGTH_SHORT).show()
             return
         }
+        // The square button beside Close opens both sizing presets and opacity.
         val menu = PopupMenu(ctx, p.maxBtn)
         menu.menu.add(0, 25, 0, ctx.getString(R.string.window_resize_25))
         menu.menu.add(0, 50, 1, ctx.getString(R.string.window_resize_50))
         menu.menu.add(0, 100, 2, ctx.getString(R.string.window_resize_fullscreen))
+        val opacityPercent = ((prefs.getString("window_controls_opacity", "0.9")
+            ?.toFloatOrNull() ?: 0.9f) * 100f).toInt().coerceIn(15, 100)
+        menu.menu.add(0, 101, 3, ctx.getString(R.string.window_controls_opacity_menu, opacityPercent))
         menu.setOnMenuItemClickListener { item ->
-            onResizePreset(p, item.itemId)
+            if (item.itemId == 101) showOpacityPicker(p)
+            else onResizePreset(p, item.itemId)
             true
         }
         try {
             menu.show()
         } catch (e: Exception) {
             Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Opacity slider anchored to the floating controls, not a separate Settings page. */
+    private fun showOpacityPicker(p: Pill) {
+        val current = ((prefs.getString("window_controls_opacity", "0.9")
+            ?.toFloatOrNull() ?: 0.9f) * 100f).toInt().coerceIn(15, 100)
+
+        val title = TextView(ctx).apply {
+            text = ctx.getString(R.string.window_controls_opacity_title)
+            textSize = 14f
+            setTextColor(Color.WHITE)
+        }
+        val value = TextView(ctx).apply {
+            text = "$current%"
+            textSize = 12f
+            setTextColor(Color.LTGRAY)
+            gravity = Gravity.END
+        }
+        val slider = SeekBar(ctx).apply {
+            max = 85 // 15% minimum, so the controls can never become completely invisible.
+            progress = current - 15
+            contentDescription = ctx.getString(R.string.window_controls_opacity_title)
+        }
+        val content = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(10), dp(14), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#F0202124"))
+                cornerRadius = dp(12).toFloat()
+            }
+            addView(title, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
+            addView(value, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(2) })
+            addView(slider, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(4) })
+        }
+
+        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val percent = (progress + 15).coerceIn(15, 100)
+                value.text = "$percent%"
+                val opacity = percent / 100f
+                prefs.edit().putString(
+                    "window_controls_opacity",
+                    String.format(Locale.US, "%.2f", opacity)
+                ).apply()
+                pills.values.forEach { it.view.alpha = opacity }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+
+        val popup = PopupWindow(
+            content,
+            dp(240),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+                cornerRadius = dp(12).toFloat()
+            })
+            elevation = dp(8).toFloat()
+        }
+        try {
+            popup.showAsDropDown(p.view, -dp(82), dp(4))
+        } catch (e: Exception) {
+            try {
+                popup.showAsDropDown(p.maxBtn, -dp(100), dp(4))
+            } catch (ignored: Exception) {
+                Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

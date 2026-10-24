@@ -999,6 +999,7 @@
     <string name="window_resize_25">25% diện tích màn hình</string>
     <string name="window_resize_50">50% diện tích màn hình</string>
     <string name="window_resize_fullscreen">Toàn màn hình</string>
+    <string name="window_controls_opacity_menu">Độ mờ tay nắm (%1$d%%)…</string>
     <string name="desktop_gestures_category">Cử chỉ</string>
     <string name="desktop_double_tap_to_sleep_title">Chạm đúp để tắt màn hình</string>
     <string name="desktop_double_tap_to_sleep_summary">Chạm đúp vào vùng trống trên desktop để khóa màn hình.</string>

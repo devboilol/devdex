@@ -1103,6 +1103,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="window_resize_25">25% of screen (quarter area)</string>
     <string name="window_resize_50">50% of screen (half area)</string>
     <string name="window_resize_fullscreen">Full screen</string>
+    <string name="window_controls_opacity_menu">Handle opacity (%1$d%%)…</string>
     <string name="desktop_gestures_category">Gestures</string>
     <string name="desktop_double_tap_to_sleep_title">Double-tap to sleep</string>
     <string name="desktop_double_tap_to_sleep_summary">Double-tap an empty area of the desktop to lock the screen.</string>
