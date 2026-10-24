@@ -62,6 +62,8 @@ For release notes and version history, check the [GitHub Releases page](https://
 
 ## Features
 
+- Windowed apps show two controls: resize/restore and close. Fullscreen activities do not receive a DevDex control overlay.
+
 **Desktop**
 - Accessibility-based overlay — works as your launcher or on-demand from a Quick Settings tile / shortcut
 - Centered floating dock (KDE-style) or classic edge-pinned dock (Windows-style)

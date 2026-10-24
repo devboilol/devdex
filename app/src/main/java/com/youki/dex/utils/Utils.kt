@@ -220,7 +220,7 @@ object Utils {
             Toast.makeText(context, R.string.preferences_saved, Toast.LENGTH_SHORT).show()
         } catch (e: IOException) {
             android.util.Log.e("DevDexBackup", "Could not export settings", e)
-            Toast.makeText(context, R.string.preferences_saved, Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Could not export settings", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -231,56 +231,61 @@ object Utils {
                 it.bufferedReader(Charsets.UTF_8).readText()
             } ?: return
             val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            val editor = prefs.edit()
             if (text.trimStart().startsWith("{")) {
                 val root = org.json.JSONObject(text)
                 require(root.optString("format") == "devdex-settings") { "Not a DevDex settings backup" }
                 val entries = root.optJSONArray("preferences") ?: org.json.JSONArray()
-                prefs.edit {
-                    for (i in 0 until entries.length()) {
-                        val entry = entries.optJSONObject(i) ?: continue
-                        val key = entry.optString("key")
-                        if (key.isBlank()) continue
-                        val value = entry.opt("value")
-                        when (entry.optString("type")) {
-                            "boolean" -> putBoolean(key, value as? Boolean ?: continue)
-                            "integer" -> putInt(key, (value as? Number)?.toInt() ?: continue)
-                            "long" -> putLong(key, (value as? Number)?.toLong() ?: continue)
-                            "float" -> putFloat(key, (value as? Number)?.toFloat() ?: continue)
-                            "string" -> putString(key, value?.takeUnless { it == org.json.JSONObject.NULL }?.toString() ?: "")
-                            "string_set" -> {
-                                val array = value as? org.json.JSONArray ?: continue
-                                putStringSet(key, (0 until array.length()).mapNotNull { array.optString(it, null) }.toSet())
+                for (i in 0 until entries.length()) {
+                    val entry = entries.optJSONObject(i) ?: continue
+                    val key = entry.optString("key")
+                    if (key.isBlank()) continue
+                    val value = entry.opt("value")
+                    when (entry.optString("type")) {
+                        "boolean" -> (value as? Boolean)?.let { editor.putBoolean(key, it) }
+                        "integer" -> (value as? Number)?.let { editor.putInt(key, it.toInt()) }
+                        "long" -> (value as? Number)?.let { editor.putLong(key, it.toLong()) }
+                        "float" -> (value as? Number)?.let { editor.putFloat(key, it.toFloat()) }
+                        "string" -> editor.putString(key, value?.takeUnless { it == org.json.JSONObject.NULL }?.toString() ?: "")
+                        "string_set" -> {
+                            val array = value as? org.json.JSONArray ?: continue
+                            val set = linkedSetOf<String>()
+                            for (j in 0 until array.length()) {
+                                val item = array.optString(j, null)
+                                if (item != null) set.add(item)
                             }
+                            editor.putStringSet(key, set)
                         }
                     }
                 }
             } else {
                 // Backward compatibility for the previous .sdp format.
-                prefs.edit {
-                    text.lineSequence().forEach { line ->
-                        val parts = line.split("|||")
-                        if (parts.size < 3) return@forEach
-                        val type = parts[0]
-                        val key = parts[1]
-                        val value = parts.drop(2).joinToString("|||")
-                        try {
-                            when (type) {
-                                "boolean" -> putBoolean(key, value.toBoolean())
-                                "integer" -> putInt(key, value.toInt())
-                                "float" -> putFloat(key, value.toFloat())
-                                "long" -> putLong(key, value.toLong())
-                                "string_set" -> {
-                                    val array = org.json.JSONArray(value)
-                                    putStringSet(key, (0 until array.length()).map { array.getString(it) }.toSet())
-                                }
-                                else -> putString(key, value)
+                text.lineSequence().forEach { line ->
+                    val parts = line.split("|||")
+                    if (parts.size < 3) return@forEach
+                    val type = parts[0]
+                    val key = parts[1]
+                    val value = parts.drop(2).joinToString("|||")
+                    try {
+                        when (type) {
+                            "boolean" -> editor.putBoolean(key, value.toBoolean())
+                            "integer" -> editor.putInt(key, value.toInt())
+                            "float" -> editor.putFloat(key, value.toFloat())
+                            "long" -> editor.putLong(key, value.toLong())
+                            "string_set" -> {
+                                val array = org.json.JSONArray(value)
+                                val set = linkedSetOf<String>()
+                                for (j in 0 until array.length()) set.add(array.getString(j))
+                                editor.putStringSet(key, set)
                             }
-                        } catch (e: Exception) {
-                            android.util.Log.w("DevDexBackup", "Skipped invalid preference: $key", e)
+                            else -> editor.putString(key, value)
                         }
+                    } catch (e: Exception) {
+                        android.util.Log.w("DevDexBackup", "Skipped invalid preference: $key", e)
                     }
                 }
             }
+            editor.apply()
             Toast.makeText(context, R.string.preferences_restored, Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             android.util.Log.e("DevDexBackup", "Could not import settings", e)
