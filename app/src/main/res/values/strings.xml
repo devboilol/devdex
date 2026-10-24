@@ -331,6 +331,7 @@
     <string name="experimental_desktop_widgets_summary">Opt in to testing Android widgets on the desktop. Widgets stay off by default because some providers and ROMs have lifecycle bugs.</string>
     <string name="desktop_widgets_picker_unavailable">The system widget picker could not be opened.</string>
     <string name="fm_internal_storage">Internal storage</string>
+    <string name="fm_folder">Folder</string>
     <string name="fm_downloads">Downloads</string>
     <string name="fm_items_count">%1$d items</string>
     <string name="fm_permission_title">File access required</string>
