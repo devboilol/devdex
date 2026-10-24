@@ -369,6 +369,7 @@
     <string name="allow_sysapp_uninstall_summary">Hãy cẩn thận, thao tác này có thể gây rủi ro.</string>
     <string name="hide_status_bar_title">Ẩn thanh trạng thái</string>
     <string name="hide_status_bar_summary">Mặc định tắt để thanh trạng thái Android luôn hiện. Bật lên nếu muốn ẩn thanh này trong chế độ desktop.</string>
+    <string name="multi_window_fallback_unavailable">Thiết bị không hỗ trợ cửa sổ tự do và DevDex chưa bật được chia đôi màn hình. Hãy cấp quyền Shizuku cho DevDex và kiểm tra cả hai ứng dụng có hỗ trợ Cửa sổ song song.</string>
     <string name="hide_nav_buttons_title">Ẩn nút điều hướng</string>
     <string name="hide_nav_buttons_summary">Ẩn các nút điều hướng phần mềm của Android. Cần khởi động lại.</string>
     <string name="disable_taskbar_title">Tắt thanh tác vụ hệ thống</string>
