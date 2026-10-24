@@ -161,12 +161,10 @@ object DeviceUtils {
     }
 
     fun hideStatusBar(context: android.content.Context, hide: Boolean) {
-        try {
-            val resolver = context.contentResolver
-            val current = android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty()
-            // Remove the global immersive policies DevDex used in older builds, but
-            // preserve unrelated app-specific policies owned by the user or the ROM.
-            val policies = current.split(',')
+        val resolver = context.contentResolver
+        val desiredPolicies = try {
+            android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty()
+                .split(',')
                 .map { it.trim() }
                 .filter {
                     it.isNotEmpty() &&
@@ -175,16 +173,57 @@ object DeviceUtils {
                         it != "immersive.status=*"
                 }
                 .toMutableList()
+                .apply {
+                    // Do not use immersive.full: it also hides navigation and can force
+                    // gesture-navigation devices into a different navigation mode.
+                    if (hide) add("immersive.status=*")
+                }
+                .joinToString(",")
+        } catch (e: Exception) {
+            if (hide) "immersive.status=*" else ""
+        }
 
-            // Do not use immersive.full: it also hides navigation and can force
-            // gesture-navigation devices into a different navigation mode.
-            if (hide) policies.add("immersive.status=*")
-            val policy = policies.joinToString(",")
-            android.provider.Settings.Global.putString(
-                resolver,
-                "policy_control",
-                if (policy.isEmpty()) null else policy
-            )
+        val value: String? = desiredPolicies.ifEmpty { null }
+        fun isApplied(): Boolean = try {
+            android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty() ==
+                desiredPolicies
+        } catch (e: Exception) {
+            false
+        }
+
+        // Prefer the normal API. Some devices deny WRITE_SECURE_SETTINGS until
+        // Shizuku/root is granted, so fall back to a privileged route and verify
+        // the setting actually changed instead of silently claiming success.
+        try {
+            android.provider.Settings.Global.putString(resolver, "policy_control", value)
+            if (isApplied()) return
+        } catch (e: Exception) {}
+
+        val command = if (value == null) {
+            "settings delete global policy_control"
+        } else {
+            val escaped = value.replace("'", "'\\''")
+            "settings put global policy_control '$escaped'"
+        }
+
+        try {
+            val shell = com.youki.dex.server.ShellManager
+            if (shell.isAvailable) {
+                shell.execSync(command)
+                if (isApplied()) return
+            }
+        } catch (e: Exception) {}
+
+        try {
+            val shizuku = ShizukoManager.getInstance(context)
+            if (shizuku.hasPermission) {
+                shizuku.runShellSyncWithStderr(command)
+                if (isApplied()) return
+            }
+        } catch (e: Exception) {}
+
+        try {
+            runAsRoot(command)
         } catch (e: Exception) {}
     }
 
