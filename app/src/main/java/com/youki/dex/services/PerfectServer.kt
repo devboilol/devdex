@@ -767,6 +767,12 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
         // The profile/avatar slot is the direct, predictable entry to DevDex settings.
         userBtn.setOnClickListener { animateBtn(it) { openSettingsScreen() } }
+        // Preserve power actions on long-press without stealing the normal Settings tap.
+        userBtn.setOnLongClickListener {
+            if (sharedPreferences.getBoolean("enable_power_menu", false)) showPowerMenu()
+            else performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+            true
+        }
 
         // ── Load user icon for dock button ────────────────────────────────────
         refreshUserButton()
