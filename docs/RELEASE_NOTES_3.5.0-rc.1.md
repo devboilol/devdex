@@ -28,3 +28,7 @@
 ## Build identity
 
 The workflow artifact contains the exact commit SHA, Actions run ID, version code, version name and SHA-256 checksum. Use those metadata values when reporting a bug.
+
+## RC build
+
+The RC branch is synchronized with the merged main pipeline. The `Build APK` workflow is configured for `release/**` branches and should produce a version-labelled artifact named `DevDex-3.5.0-rc.1-candidate`. Check the Actions run and verify the SHA-256 file before installing. If no branch-triggered run appears, use **Actions → Build APK → Run workflow**, select this branch, and set the version to `3.5.0-rc.1`.
