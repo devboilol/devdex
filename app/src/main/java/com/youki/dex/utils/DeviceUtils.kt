@@ -171,8 +171,8 @@ object DeviceUtils {
                 .filter {
                     it.isNotEmpty() &&
                         it != "null" &&
-                        !it.startsWith("immersive.full=") &&
-                        !it.startsWith("immersive.status=")
+                        it != "immersive.full=*" &&
+                        it != "immersive.status=*"
                 }
                 .toMutableList()
 
