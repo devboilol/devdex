@@ -2150,6 +2150,63 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             )
                 db.saveLaunchMode(packageName, launchMode)
 
+        // Redmi Pad SE 8.7 and similar tablets may support two-app split-screen
+        // without advertising Android freeform-window support. ActivityOptions bounds
+        // are ignored on those devices, so the second app otherwise covers the first.
+        // Promote the already-open app to split primary, then launch the requested app
+        // into split secondary. If no existing app task can be promoted, open the first
+        // app normally and wait for the next launch to form the pair.
+        if (launchMode != "fullscreen" &&
+            displayId == Display.DEFAULT_DISPLAY &&
+            !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT)
+        ) {
+            val shizuku = ShizukoManager.getInstance(context)
+            val focusedPackage = try {
+                shizuku.getForegroundPackage()
+            } catch (e: Exception) {
+                null
+            }?.takeIf {
+                it != packageName && it != this@DockService.packageName &&
+                    !it.startsWith("com.android.systemui")
+            }
+            val visiblePackage = try {
+                activityManager.getRunningTasks(50)
+                    .firstOrNull { task ->
+                        val candidate = task.topActivity?.packageName
+                        candidate != null &&
+                            candidate != packageName &&
+                            candidate != this@DockService.packageName &&
+                            !candidate.startsWith("com.android.systemui")
+                    }?.topActivity?.packageName
+            } catch (e: Exception) {
+                null
+            }
+            val previousPackage = focusedPackage ?: visiblePackage
+            val previousTaskId = previousPackage?.let {
+                AppUtils.findTaskIdViaPrivilegedShell(context, it)
+            } ?: -1
+            if (previousTaskId >= 0 &&
+                AppUtils.setTaskWindowingMode(
+                    context, previousTaskId, 3
+                )
+            ) {
+                launchMode = "split-secondary"
+            } else {
+                if (previousPackage != null) {
+                    android.util.Log.w(
+                        "DockService",
+                        "Freeform is unavailable and split-screen fallback could not promote $previousPackage"
+                    )
+                    Toast.makeText(
+                        context,
+                        R.string.multi_window_fallback_unavailable,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                launchMode = "fullscreen"
+            }
+        }
+
         // OEMs differ in which windowing/display options they permit. If
         // building the enhanced options itself fails, keep launching with
         // platform defaults rather than losing the app launch entirely.
@@ -2176,6 +2233,11 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
             if (launchIntent == null)
                 return
+
+            // Ask Android to place the second app beside the current split-screen task.
+            if (launchMode == "split-secondary") {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT)
+            }
 
             // A first launch should own a distinct task. If Android can already see
             // this package's task, reuse it instead of spawning duplicate windows.
@@ -2300,7 +2362,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 }
             }
 
-            if (packageName != null && launchMode != "fullscreen") {
+            if (packageName != null &&
+                launchMode != "fullscreen" &&
+                launchMode != "split-secondary"
+            ) {
                 checkTaskCreatedOrRetry(packageName, launchMode, attempt = 1)
             }
         }
