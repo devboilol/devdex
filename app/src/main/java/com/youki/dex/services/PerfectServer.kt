@@ -2177,6 +2177,31 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             if (launchIntent == null)
                 return
 
+            // A first launch should own a distinct task. If Android can already see
+            // this package's task, reuse it instead of spawning duplicate windows.
+            if (launchMode != "fullscreen" && packageName != null && !newInstance) {
+                val hasVisibleTask = try {
+                    activityManager.getRunningTasks(50).any { task ->
+                        task.topActivity?.packageName == packageName ||
+                            task.baseActivity?.packageName == packageName ||
+                            task.origActivity?.packageName == packageName
+                    }
+                } catch (e: Exception) {
+                    false
+                }
+                val hasTrackedProcess = AppUtils.trulyRunningPackages?.contains(packageName) == true
+                val canInspectPrivilegedTasks =
+                    com.youki.dex.server.ShellManager.isAvailable ||
+                        ShizukoManager.getInstance(context).hasPermission
+                val hasPrivilegedTask = !hasVisibleTask && !hasTrackedProcess &&
+                    canInspectPrivilegedTasks &&
+                    AppUtils.findTaskIdViaPrivilegedShell(context, packageName) >= 0
+
+                if (!hasVisibleTask && !hasTrackedProcess && !hasPrivilegedTask) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                }
+            }
+
             if (newInstance)
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
 
@@ -2211,18 +2236,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 // new silent no-op.
             }
 
-            // See AppUtils.isAppProcessRunning's own doc comment for the
-            // full explanation. Short version: ActivityOptions'
-            // setLaunchBounds/setLaunchWindowingMode above are unreliable
-            // specifically on a cold start (no existing process) — the
-            // system briefly creates the new Task at a default size before
-            // the requested freeform bounds take effect, so "Maximized"
-            // (or any non-standard mode) can silently open at roughly
-            // half-screen the very first time an app is launched. This
-            // check must run BEFORE startActivity, since startActivity is
-            // what creates the process this function checks for.
-            val wasAlreadyRunning = packageName != null &&
-                AppUtils.isAppProcessRunning(this@DockService, packageName)
+            // Verify and re-apply the requested window mode after launch, including
+            // when Android brings an existing task forward but ignores its launch bounds.
 
             // FIX: startActivity() had no error handling at all — on a slow
             // device (user report: BLU M10L Pro, 3GB RAM, Unisoc T310) a
@@ -2285,17 +2300,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 }
             }
 
-            if (!wasAlreadyRunning && packageName != null && launchMode != "fullscreen") {
-                // 400ms: long enough for the system to finish creating the
-                // Task on a genuine cold start (150ms was already the gap
-                // AppUtils.resizeTask uses between its own two shell
-                // commands, set-windowing-mode then resize — see that
-                // function — so 400ms here is a deliberately larger margin
-                // for the slower "new process + new Task" case specifically,
-                // not just "switch windowing mode on an existing Task").
-                // Not a fixed fix for every device/timing — see this
-                // change's own commit message for that caveat — but doing
-                // nothing left the bug fully unaddressed.
+            if (packageName != null && launchMode != "fullscreen") {
                 checkTaskCreatedOrRetry(packageName, launchMode, attempt = 1)
             }
         }
@@ -2356,7 +2361,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     it.baseActivity?.packageName == packageName ||
                         it.origActivity?.packageName == packageName
                 }?.id
-                ?: -1
+                // Android/OEM task visibility can be restricted. Try the privileged
+                // route used by WindowControlsManager before giving up on resizing.
+                ?: AppUtils.findTaskIdViaPrivilegedShell(this@DockService, packageName)
             when {
                 taskId != -1 -> AppUtils.resizeTask(context, launchMode, taskId, dockHeight)
                 attempt == 1 -> checkTaskCreatedOrRetry(packageName, launchMode, attempt = 2)
