@@ -1095,4 +1095,9 @@ To uninstall, remove Device Administrator permission first.</string>
 
     <string name="window_task_not_found">DevDex could not identify this window task. Try granting DevDex Shizuku access or use Close app if ending the whole session is acceptable.</string>
     <string name="shizuku_permission_required_for_window_close">Shizuku may be running, but DevDex still needs authorization in Shizuku. Grant access to DevDex, then tap Close again.</string>
+    <string name="window_controls_category">Window controls</string>
+    <string name="window_controls_enabled_title">Show floating window controls</string>
+    <string name="window_controls_enabled_summary">Show resize and close buttons for floating app windows.</string>
+    <string name="window_controls_opacity_title">Window control opacity</string>
+    <string name="window_controls_opacity_summary">Adjust the transparency of the resize/close control group (100% = solid).</string>
 </resources>

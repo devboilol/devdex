@@ -991,4 +991,9 @@
     <string name="trackpad_status_accessibility_needed">Hãy bật dịch vụ Trợ năng của DevDex trong Cài đặt trước.</string>
     <string name="window_task_not_found">DevDex không xác định được task của cửa sổ này. Hãy cấp quyền Shizuku cho DevDex hoặc dùng “Đóng ứng dụng” nếu muốn kết thúc toàn bộ phiên.</string>
     <string name="shizuku_permission_required_for_window_close">Shizuku có thể đang chạy nhưng DevDex chưa được cấp quyền. Hãy cho phép DevDex trong Shizuku rồi chạm Đóng lần nữa.</string>
+    <string name="window_controls_category">Điều khiển cửa sổ</string>
+    <string name="window_controls_enabled_title">Hiện nút điều khiển cửa sổ nổi</string>
+    <string name="window_controls_enabled_summary">Hiện nút đổi kích thước và đóng cửa sổ ứng dụng nổi.</string>
+    <string name="window_controls_opacity_title">Độ trong suốt nút điều khiển</string>
+    <string name="window_controls_opacity_summary">Điều chỉnh độ trong suốt của cụm nút đổi kích thước/đóng cửa sổ (100% = đậm hoàn toàn).</string>
 </resources>

@@ -221,7 +221,8 @@ class WindowControlsManager(
             val seenUnresolvedPackages = HashSet<String>()
             val sorted = topLevelCandidates.sortedByDescending { it.layer }   // top-most first
             val pillH = dp(30)
-            val gap = dp(2)
+            val controlOpacity = (prefs.getString("window_controls_opacity", "0.9")
+                ?.toFloatOrNull() ?: 0.9f).coerceIn(0.15f, 1f)
 
             val alive = HashSet<Int>()
             for (c in sorted) {
@@ -243,6 +244,9 @@ class WindowControlsManager(
                 alive.add(c.id)
                 pill.pkg = c.pkg
                 pill.windowBounds = Rect(c.bounds)
+                // Apply to the complete control group so the background and both icons
+                // fade together. Stored as a string by SliderPreference.
+                pill.view.alpha = controlOpacity
                 pill.taskId = taskId
                 pill.taskIndex = idx
                 val statusish = DeviceUtils.getStatusBarHeight(ctx)

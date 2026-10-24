@@ -132,6 +132,30 @@ class DockPreferences : PreferenceFragmentCompat() {
         val handlePosition = findPreference<Preference>("handle_position")
         handlePosition!!.isVisible = true
 
+        // Window controls opacity: keep the value as a string, matching the
+        // existing SliderPreference convention used by handle_opacity.
+        val windowControlsOpacity = findPreference<SliderPreference>("window_controls_opacity")
+        windowControlsOpacity?.setOnDialogShownListener(object : SliderPreference.OnDialogShownListener {
+            override fun onDialogShown() {
+                val slider = windowControlsOpacity.slider
+                slider.isTickVisible = false
+                slider.labelBehavior = LabelFormatter.LABEL_GONE
+                slider.valueFrom = 0.15f
+                slider.valueTo = 1f
+                slider.stepSize = 0.05f
+                slider.value = (windowControlsOpacity.sharedPreferences
+                    ?.getString("window_controls_opacity", "0.9")?.toFloatOrNull() ?: 0.9f)
+                    .coerceIn(slider.valueFrom, slider.valueTo)
+                slider.addOnChangeListener { _, value, fromUser ->
+                    if (fromUser) {
+                        windowControlsOpacity.sharedPreferences?.edit {
+                            putString("window_controls_opacity", value.toString())
+                        }
+                    }
+                }
+            }
+        })
+
         val maxRunningApps: EditTextPreference = findPreference("max_running_apps")!!
         maxRunningApps.setOnBindEditTextListener { editText ->
             editText.inputType = InputType.TYPE_CLASS_NUMBER

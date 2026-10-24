@@ -1532,9 +1532,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (!uiReady) return
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            windowControls?.scheduleUpdate(
-                immediate = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-            ) // Coalesce drag updates per frame; focus changes refresh immediately.
+            // Bounds changes must be applied in the same main-loop turn. The
+            // accessibility service is configured with a short event timeout,
+            // so delaying again here makes controls visibly trail dragged windows.
+            windowControls?.scheduleUpdate(immediate = true)
         }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             val now = System.currentTimeMillis()
@@ -3060,6 +3061,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (!uiReady) return
         if (preference == null)
             return
+        if (preference == "window_controls_enabled" || preference == "window_controls_opacity") {
+            windowControls?.scheduleUpdate(immediate = true)
+        }
         if (preference.startsWith("theme") || preference == "bubble_color"
             || preference == "bubble_mode" || preference == "bubble_alpha"
             || preference == "round_dock" || preference == "dock_height"
