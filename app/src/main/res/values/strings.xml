@@ -1099,6 +1099,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="window_controls_enabled_title">Show floating window controls</string>
     <string name="window_controls_enabled_summary">Show resize and close buttons for floating app windows.</string>
     <string name="window_controls_opacity_title">Window control opacity</string>
+    <string name="window_resize">Resize window</string>
     <string name="media_previous">Previous track</string>
     <string name="media_pause">Pause media</string>
     <string name="media_next">Next track</string>

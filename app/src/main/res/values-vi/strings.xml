@@ -995,6 +995,7 @@
     <string name="window_controls_enabled_title">Hiện nút điều khiển cửa sổ nổi</string>
     <string name="window_controls_enabled_summary">Hiện nút đổi kích thước và đóng cửa sổ ứng dụng nổi.</string>
     <string name="window_controls_opacity_title">Độ trong suốt nút điều khiển</string>
+    <string name="window_resize">Đổi kích thước cửa sổ</string>
     <string name="media_previous">Bài trước</string>
     <string name="media_pause">Tạm dừng phát</string>
     <string name="media_next">Bài tiếp theo</string>
