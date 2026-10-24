@@ -40,6 +40,7 @@ class App : Application() {
         // If the app crashes within 10 seconds of starting, do NOT auto-restart.
         private const val CRASH_LOOP_THRESHOLD_MS = 10_000L
         private const val PREF_LAST_START_TIME = "_app_last_start_time"
+        private const val PREF_STATUS_BAR_VISIBLE_MIGRATION = "_devdex_status_bar_visible_migrated_v1"
 
         /** Call this before any intentional shutdown to cancel the auto-restart alarm */
         fun cancelRestartAlarm(context: android.content.Context) {
@@ -67,6 +68,18 @@ class App : Application() {
 
         // Record startup time for crash-loop detection
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+
+        // Migration: older builds could persist immersive mode or hide the status bar
+        // before the user had an explicit preference. Reset once to the requested
+        // default (visible); after this one-time migration, Settings remains in control.
+        if (!prefs.getBoolean(PREF_STATUS_BAR_VISIBLE_MIGRATION, false)) {
+            prefs.edit()
+                .putBoolean("hide_status_bar", false)
+                .putBoolean(PREF_STATUS_BAR_VISIBLE_MIGRATION, true)
+                .apply()
+            com.youki.dex.utils.DeviceUtils.hideStatusBar(this, false)
+        }
+
         val startTime = System.currentTimeMillis()
         prefs.edit().putLong(PREF_LAST_START_TIME, startTime).apply()
 
