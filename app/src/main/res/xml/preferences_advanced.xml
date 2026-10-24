@@ -146,11 +146,6 @@
             app:isPreferenceVisible="false" />
 
         <SwitchPreferenceCompat
-            android:key="hide_status_bar"
-            android:summary="@string/hide_status_bar_summary"
-            android:title="@string/hide_status_bar_title"
-            android:defaultValue="false" />
-        <SwitchPreferenceCompat
             android:key="hide_nav_buttons"
             android:summary="@string/hide_nav_buttons_summary"
             android:title="@string/hide_nav_buttons_title" />

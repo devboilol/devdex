@@ -3543,7 +3543,14 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             try { activeMediaController?.transportControls?.skipToPrevious() } catch (_: Exception) {}
         }
         mediaPlayPauseBtn.setOnClickListener {
-            try { activeMediaController?.transportControls?.pause() } catch (_: Exception) {}
+            try {
+                val controller = activeMediaController ?: return@setOnClickListener
+                if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                    controller.transportControls.pause()
+                } else {
+                    controller.transportControls.play()
+                }
+            } catch (_: Exception) {}
         }
         mediaNextBtn.setOnClickListener {
             try { activeMediaController?.transportControls?.skipToNext() } catch (_: Exception) {}
@@ -3664,61 +3671,31 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
                 if (systemApp) {
                     AppUtils.getRunningTasks(activityManager, packageManager, nApps)
-                } else if (useShizukuDetection && shizuku.hasPermission) {
-                    // ── Shizuku متاح: نقدر نعرف التطبيق النشط الحقيقي + التطبيقات
-                    // الشغالة بالخلفية بدون قيود getRunningTasks() على التطبيقات
-                    // العادية. أول شي نجرب نجيب المهام الحقيقية عبر
-                    // getTasksViaShizuku (تشمل freeform/multi-window تطبيقات
-                    // ما تظهر بـ getRunningTasks() العادية)؛ لو فشلت أو رجعت
-                    // فاضية (صلاحية سُحبت بعد الفحص أعلاه، خطأ بتفسير
-                    // مخرجات `am stack list` على ROM معيّن، إلخ) نرجع لقائمة
-                    // الاستخدام الأخير getRecentTasks كـ fallback — نفس
-                    // السلوك القديم قبل هذا التحسين ──
-                    val viaShizuku = AppUtils.getTasksViaShizuku(context, packageManager, nApps)
-                    val recent = viaShizuku ?: AppUtils.getRecentTasks(context, nApps)
-                    shizuku.getForegroundPackage()?.let { fg ->
-                        if (fg.isNotEmpty() && fg != packageName &&
-                            fg != AppUtils.getCurrentLauncher(packageManager)
-                        ) {
-                            AppUtils.currentApp = fg
+                } else if (shizuku.hasPermission) {
+                    // Always fetch real tasks when Shizuku is authorized so floating
+                    // and freeform windows remain represented in the taskbar. The
+                    // optional detection preference controls liveness decoration, not
+                    // whether a real window is allowed to appear.
+                    val liveTasks = AppUtils.getTasksViaShizuku(context, packageManager, nApps)
+                    val recentTasks = AppUtils.getRecentTasks(context, nApps)
+                    val livePackages = liveTasks.orEmpty().mapTo(mutableSetOf()) { it.packageName }
+                    val combined = ArrayList<AppTask>(nApps)
+                    combined.addAll(liveTasks.orEmpty())
+                    combined.addAll(recentTasks.filter { it.packageName !in livePackages })
+                    if (useShizukuDetection) {
+                        shizuku.getForegroundPackage()?.let { fg ->
+                            if (fg.isNotEmpty() && fg != packageName &&
+                                fg != AppUtils.getCurrentLauncher(packageManager)
+                            ) AppUtils.currentApp = fg
                         }
-                    }
-                    // Bug fix — dock only showed one app as "running" no matter how
-                    // many are actually open. "recent" above is a 24h *usage
-                    // history* list when we fell back to getRecentTasks (see its
-                    // own kdoc — deliberately "recently used", not "currently
-                    // running"), and until now Shizuku was only ever used to
-                    // correct which ONE of those apps gets the foreground/bold-line
-                    // style — nothing checked whether the rest of that
-                    // history list were actually still alive in the
-                    // background, so every icon with any task always drew
-                    // some indicator regardless of real liveness.
-                    //
-                    // The icon list itself stays the full history/task list
-                    // (getRunningPackages() is deliberately NOT used to
-                    // filter fetchedTasks here) — recently-used apps should
-                    // stay visible in the dock even once closed, just
-                    // without any running indicator. What Shizuku actually
-                    // corrects is per-app liveness for the indicator dot/line
-                    // itself: see AppUtils.trulyRunningPackages below, read
-                    // by DockAppAdapter to decide dot vs. line vs. nothing.
-                    shizuku.getRunningPackages().let { running ->
-                        if (running.isNotEmpty()) {
-                            AppUtils.trulyRunningPackages = running.toSet()
+                        shizuku.getRunningPackages().let { running ->
+                            if (running.isNotEmpty()) AppUtils.trulyRunningPackages = running.toSet()
                         }
-                        // Empty result (unexpected dumpsys format on this
-                        // ROM, transient failure, etc.) — leave whatever
-                        // trulyRunningPackages already held rather than
-                        // wiping every indicator out from under a
-                        // momentary hiccup.
+                    } else {
+                        AppUtils.trulyRunningPackages = null
                     }
-                    recent
+                    ArrayList(combined.take(nApps))
                 } else {
-                    // Shizuku detection off (or unavailable) — no real
-                    // liveness signal to show per-app, so clear any stale
-                    // set from a previous session/toggle rather than letting
-                    // DockAppAdapter draw indicators based on data that's no
-                    // longer being refreshed.
                     AppUtils.trulyRunningPackages = null
                     AppUtils.getRecentTasks(context, nApps)
                 }

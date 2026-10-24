@@ -455,14 +455,28 @@ class WindowControlsManager(
     // ───────────────────────────────────────────────────────────────────────
 
     private fun createPill(): Pill {
-        val row = LinearLayout(ctx).apply {
+        // Resize + close share one compact group. Opacity is its own adjacent
+        // icon group so it cannot be mistaken for a resize action.
+        val container = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val controlsGroup = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#E6202124"))
                 cornerRadius = dp(15).toFloat()
             }
-            setPadding(dp(4), 0, dp(4), 0)
+            setPadding(dp(3), 0, dp(3), 0)
+        }
+        val opacityGroup = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#E6202124"))
+                cornerRadius = dp(15).toFloat()
+            }
         }
         val btnW = dp(34)
         val btnH = dp(30)
@@ -475,9 +489,15 @@ class WindowControlsManager(
         val close = IconButton(ctx, IconButton.CLOSE).apply {
             contentDescription = ctx.getString(R.string.close)
         }
-        row.addView(max, LinearLayout.LayoutParams(btnW, btnH))
-        row.addView(opacity, LinearLayout.LayoutParams(btnW, btnH))
-        row.addView(close, LinearLayout.LayoutParams(btnW, btnH))
+        controlsGroup.addView(max, LinearLayout.LayoutParams(btnW, btnH))
+        controlsGroup.addView(close, LinearLayout.LayoutParams(btnW, btnH))
+        opacityGroup.addView(opacity, LinearLayout.LayoutParams(btnW, btnH))
+        container.addView(controlsGroup, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, btnH
+        ))
+        container.addView(opacityGroup, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, btnH
+        ).apply { marginStart = dp(4) })
 
         val type = if (DeviceUtils.isPureHarmonyOS()) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         else WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -492,8 +512,7 @@ class WindowControlsManager(
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START }
 
-        val pill = Pill(row, lp, max, opacity)
-
+        val pill = Pill(container, lp, max, opacity)
         max.setOnClickListener { showResizeMenu(pill) }
         opacity.setOnClickListener { showOpacityPicker(pill) }
         close.setOnClickListener { onClose(pill) }

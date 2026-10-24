@@ -144,14 +144,11 @@
             android:title="@string/lock_landscape_title"
             android:summary="@string/lock_landscape_summary"
             android:defaultValue="true" />
-        <!-- GitHub issue #21: hiding the status/nav bar in desktop mode used
-             to be unconditional with no way to opt out. Default true keeps
-             existing users' behavior unchanged. -->
         <SwitchPreferenceCompat
-            android:key="hide_system_bars"
-            android:title="@string/hide_system_bars_title"
-            android:summary="@string/hide_system_bars_summary"
-            android:defaultValue="true" />
+            android:key="hide_status_bar"
+            android:title="@string/hide_status_bar_title"
+            android:summary="@string/hide_status_bar_summary"
+            android:defaultValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/desktop">

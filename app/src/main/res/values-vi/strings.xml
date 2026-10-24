@@ -368,7 +368,7 @@
     <string name="allow_sysapp_uninstall_title">Cho phép gỡ ứng dụng hệ thống</string>
     <string name="allow_sysapp_uninstall_summary">Hãy cẩn thận, thao tác này có thể gây rủi ro.</string>
     <string name="hide_status_bar_title">Ẩn thanh trạng thái</string>
-    <string name="hide_status_bar_summary">Ẩn thanh trạng thái phía trên để giao diện desktop gọn hơn.</string>
+    <string name="hide_status_bar_summary">Mặc định tắt để thanh trạng thái Android luôn hiện. Bật lên nếu muốn ẩn thanh này trong chế độ desktop.</string>
     <string name="hide_nav_buttons_title">Ẩn nút điều hướng</string>
     <string name="hide_nav_buttons_summary">Ẩn các nút điều hướng phần mềm của Android. Cần khởi động lại.</string>
     <string name="disable_taskbar_title">Tắt thanh tác vụ hệ thống</string>
