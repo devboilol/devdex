@@ -737,27 +737,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             true
         }
 
-        // ── User button → opens combined Power + Users menu ──────────────────
-        userBtn.setOnClickListener {
-            animateBtn(it) {
-                // FIX: dead setting — "enable_power_menu" ("Built in power
-                // menu: use a custom power menu instead of the system one",
-                // preferences_advanced.xml, defaults to false) was defined
-                // and shown in Settings, but showPowerMenu() below was
-                // called unconditionally — the custom menu always appeared
-                // regardless of the switch, and there was no way to ever
-                // get the actual system power dialog this setting's own
-                // description promises as the alternative. GLOBAL_ACTION_
-                // POWER_DIALOG is the standard AccessibilityService action
-                // for that — DockService already is one (see its class
-                // declaration).
-                if (sharedPreferences.getBoolean("enable_power_menu", false)) {
-                    showPowerMenu()
-                } else {
-                    performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
-                }
-            }
-        }
+        // The profile/avatar slot is the direct, predictable entry to DevDex settings.
+        userBtn.setOnClickListener { animateBtn(it) { openSettingsScreen() } }
 
         // ── Load user icon for dock button ────────────────────────────────────
         refreshUserButton()
@@ -1517,7 +1498,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (!uiReady) return
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            windowControls?.scheduleUpdate()   // throttled inside; keeps min/max/close buttons glued to the windows
+            windowControls?.scheduleUpdate(
+                immediate = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+            ) // Coalesce drag updates per frame; focus changes refresh immediately.
         }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             val now = System.currentTimeMillis()
@@ -3089,7 +3072,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             updateDockTrigger()
         else if (preference.startsWith("enable_corner_"))
             updateCorners()
-        else if (preference.startsWith("enable_nav_")) {
+        else if (preference.startsWith("enable_nav_") || preference == "nav_button_style") {
             updateNavigationBar()
         } else if (preference.startsWith("enable_qs_")) {
             updateQuickSettings()
@@ -3810,6 +3793,27 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             appsBtnCenter.visibility = View.GONE
             appsBtn.visibility = if (appsEnabled) View.VISIBLE else View.GONE
         }
+        val navStyle = sharedPreferences.getString("nav_button_style", "pixel") ?: "pixel"
+        val navIcons = when (navStyle) {
+            "oneui" -> Triple(
+                R.drawable.ic_nav_oneui_back,
+                R.drawable.ic_nav_oneui_home,
+                R.drawable.ic_nav_oneui_recents
+            )
+            "aosp" -> Triple(
+                R.drawable.ic_nav_aosp_back,
+                R.drawable.ic_nav_aosp_home,
+                R.drawable.ic_nav_aosp_recents
+            )
+            else -> Triple(
+                R.drawable.ic_nav_pixel_back,
+                R.drawable.ic_nav_pixel_home,
+                R.drawable.ic_nav_pixel_recents
+            )
+        }
+        backBtn.setImageResource(navIcons.first)
+        homeBtn.setImageResource(navIcons.second)
+        recentBtn.setImageResource(navIcons.third)
         backBtn.visibility =
             if (sharedPreferences.getBoolean("enable_nav_back", true)) View.VISIBLE else View.GONE
         homeBtn.visibility =
@@ -3863,16 +3867,40 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun launchAssistant() {
-        // Google Assistant directly — no customization
-        val assistIntent = packageManager.getLaunchIntentForPackage("com.google.android.googlequicksearchbox")
-        if (assistIntent != null) {
-            assistIntent.action = Intent.ACTION_ASSIST
-            assistIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            try { context.startActivity(assistIntent) } catch (e: Exception) {}
-        } else {
+        // "app_assistant" is configurable from Settings → Default apps or
+        // Dock → Navigation. Prefer that app's assist handler, then its normal
+        // launch intent. If no app is selected, defer to Android's default
+        // ACTION_ASSIST handler instead of hard-coding Google.
+        val selectedPackage = sharedPreferences.getString("app_assistant", "").orEmpty()
+        if (selectedPackage.isNotBlank()) {
             try {
-                startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (e: ActivityNotFoundException) {}
+                val selectedAssist = Intent(Intent.ACTION_ASSIST)
+                    .setPackage(selectedPackage)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (selectedAssist.resolveActivity(packageManager) != null) {
+                    context.startActivity(selectedAssist)
+                    return
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("DockService", "Selected app did not handle ACTION_ASSIST", e)
+            }
+
+            val launchIntent = packageManager.getLaunchIntentForPackage(selectedPackage)
+            if (launchIntent != null) {
+                try {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(launchIntent)
+                    return
+                } catch (e: Exception) {
+                    android.util.Log.e("DockService", "Could not launch selected assistant app", e)
+                }
+            }
+        }
+
+        try {
+            startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            android.widget.Toast.makeText(context, R.string.settings_screen_unavailable, Toast.LENGTH_SHORT).show()
         }
     }
 
