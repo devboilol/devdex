@@ -42,6 +42,64 @@ DevDex is preparing a Release Candidate (RC). CI APKs are test artifacts; a down
 3. Review each permission carefully. Accessibility and overlay permissions are essential to the desktop experience.
 4. Use DevDex as your launcher or start it on demand using the available shortcut or Quick Settings tile.
 
+### Detailed installation guide
+
+> **Preview warning:** This is an experimental Community Preview, not a stable release. The APK uses debug signing, so it may not install as an update over another DevDex build. Back up important data first and preferably test on a secondary device. Do not rely on this preview for banking, payments, identity verification, government services, or other sensitive workflows.
+
+#### 1. Download the APK
+
+1. Open the [DevDex 3.5.186 Community Preview release](https://github.com/devboilol/devdex/releases/tag/v3.5.186-preview.1).
+2. Under **Assets**, download **`DevDex.3.5.186.Community.Preview.apk`**.
+3. Do **not** download either **Source code** archive for installation. Source-code ZIP/TAR files are not APK installers.
+
+#### 2. Allow installation from the app you used to download it
+
+1. Open the downloaded APK from your browser's downloads list or from a file manager.
+2. If Android blocks the installation, follow the prompt to open Settings and enable **Allow from this source** / **Install unknown apps** for that browser or file manager.
+3. Return to the APK and continue. The exact wording and screen layout vary by Android version and device manufacturer. You can turn this permission off again after installation.
+
+Only install APKs from sources you trust. This release is an early test build.
+
+#### 3. Install and open DevDex
+
+1. Tap **Install** and wait for Android to finish.
+2. Tap **Open**.
+3. Complete the first-run setup and choose **System default**, **English**, or **Vietnamese**.
+
+#### 4. Review the requested permissions
+
+- **Display over other apps / Appear on top:** enable this for DevDex when prompted if you want its desktop overlays, taskbar, and window controls to work.
+- **Accessibility:** if DevDex asks you to enable its Accessibility service, read the Android system explanation, then enable it only if you want the related desktop interactions. You can review or revoke it later in Android Settings → Accessibility.
+- Grant permissions only to DevDex and only when needed. Android's permission names and locations can vary by manufacturer.
+
+Some advanced system operations require **Shizuku** or **Root**. These are not required for every basic desktop feature. Do not configure them unless a feature you intend to use explicitly needs them and you understand the additional access they provide.
+
+#### 5. Optional: make DevDex your default Home app
+
+If you want the device to open into DevDex when you press Home:
+
+1. Open Android **Settings → Apps → Default apps → Home app** (the labels may differ).
+2. Select **DevDex**, if it is listed.
+3. Keep your existing launcher available so you can switch back if needed.
+
+You can skip this step and launch DevDex manually instead.
+
+#### 6. First-run checks
+
+- Open DevDex and confirm the desktop, taskbar, and dock appear.
+- Try moving, resizing, restoring, and closing a windowed app.
+- Check **Settings → Appearance** for status-bar preferences. The status bar is visible by default; **Hide status bar** is optional.
+- If you use the built-in file manager on Android 11 or newer, it may require **All files access**. Grant it only if you intend to use that feature.
+
+#### Troubleshooting
+
+- **“App not installed” or update fails:** a different signing certificate may be the cause. Do not uninstall your current installation unless you have backed up what you need and accept that uninstalling may erase DevDex's local app data.
+- **Desktop controls or overlays do not appear:** review the overlay permission and any Accessibility setup shown by DevDex. Restart the app after changing permissions.
+- **Freeform windows do not work:** support depends on your Android version and the device firmware. Check the [Compatibility and limitations](#compatibility-and-limitations) section; some manufacturers disable freeform windows.
+- **A permission screen looks different:** follow the Android prompt on your device. Manufacturer-specific menus can use different names or omit the feature entirely.
+
+For reproducible bugs, include your device model, Android/firmware version, the steps you took, and screenshots or screen recordings in a [GitHub Issue](https://github.com/devboilol/devdex/issues).
+
 ### Settings backup
 
 Open **Settings → Advanced → Backup/Restore Preferences** to export or import settings. New backups use JSON format; older `.sdp` backups remain supported.
@@ -101,6 +159,64 @@ DevDex đang chuẩn bị bản Release Candidate (RC). APK từ CI là bản ki
 2. Hoàn tất phần thiết lập ban đầu và chọn ngôn ngữ.
 3. Đọc kỹ từng quyền trước khi cấp. Quyền Trợ năng và quyền hiển thị trên ứng dụng khác là thành phần quan trọng của trải nghiệm desktop.
 4. Dùng DevDex làm trình khởi chạy mặc định hoặc mở khi cần bằng lối tắt hay ô Cài đặt nhanh nếu thiết bị hỗ trợ.
+
+### Hướng dẫn cài đặt chi tiết
+
+> **Lưu ý về bản thử nghiệm:** Đây là bản Community Preview đang trong giai đoạn thử nghiệm, chưa phải bản ổn định. APK dùng debug signing nên có thể không cài cập nhật đè lên một bản DevDex khác. Hãy sao lưu dữ liệu quan trọng trước và ưu tiên thử trên thiết bị phụ. Không dùng bản này cho ngân hàng, thanh toán, xác minh danh tính, dịch vụ chính phủ hoặc các thao tác nhạy cảm khác.
+
+#### 1. Tải đúng file APK
+
+1. Mở trang phát hành [DevDex 3.5.186 Community Preview](https://github.com/devboilol/devdex/releases/tag/v3.5.186-preview.1).
+2. Trong mục **Assets**, tải file **`DevDex.3.5.186.Community.Preview.apk`**.
+3. Khi cài ứng dụng, **không** tải hai file **Source code**. Các file ZIP/TAR chứa mã nguồn, không phải bộ cài APK.
+
+#### 2. Cho phép cài ứng dụng từ nguồn tải xuống
+
+1. Mở file APK vừa tải trong danh sách tải xuống của trình duyệt hoặc bằng trình quản lý tệp.
+2. Nếu Android chặn cài đặt, làm theo hướng dẫn để mở Cài đặt và bật **Allow from this source / Install unknown apps** cho đúng trình duyệt hoặc trình quản lý tệp đang dùng.
+3. Quay lại APK và tiếp tục cài. Tên mục và giao diện có thể khác nhau theo phiên bản Android và hãng thiết bị. Sau khi cài xong, m có thể tắt lại quyền này.
+
+Chỉ cài APK từ nguồn đáng tin cậy. Đây là bản thử nghiệm sớm.
+
+#### 3. Cài đặt và mở DevDex
+
+1. Nhấn **Install / Cài đặt** và chờ Android cài xong.
+2. Nhấn **Open / Mở**.
+3. Hoàn tất thiết lập lần đầu và chọn **System default**, **English** hoặc **Vietnamese**.
+
+#### 4. Xem lại các quyền được yêu cầu
+
+- **Display over other apps / Appear on top (Hiển thị trên ứng dụng khác):** bật quyền này cho DevDex khi được yêu cầu nếu m muốn lớp phủ desktop, taskbar và điều khiển cửa sổ hoạt động.
+- **Accessibility (Trợ năng):** nếu DevDex hướng dẫn bật dịch vụ Trợ năng, hãy đọc giải thích của Android rồi chỉ bật nếu m cần các tương tác desktop liên quan. Có thể xem lại hoặc thu hồi trong Cài đặt Android → Trợ năng.
+- Chỉ cấp quyền cho DevDex và khi cần thiết. Tên và vị trí các mục cài đặt có thể khác theo hãng máy.
+
+Một số thao tác hệ thống nâng cao cần **Shizuku** hoặc **Root**. Các tính năng desktop cơ bản không phải lúc nào cũng cần những quyền này. Đừng cấu hình nếu tính năng m định dùng không yêu cầu và m chưa rõ mức truy cập mà chúng cung cấp.
+
+#### 5. Tùy chọn: đặt DevDex làm ứng dụng Màn hình chính mặc định
+
+Nếu muốn thiết bị mở DevDex khi nhấn nút Home:
+
+1. Mở **Cài đặt Android → Ứng dụng → Ứng dụng mặc định → Ứng dụng Màn hình chính / Home app** (tên mục có thể khác).
+2. Chọn **DevDex** nếu ứng dụng xuất hiện trong danh sách.
+3. Giữ trình khởi chạy hiện tại để có thể chuyển lại khi cần.
+
+Có thể bỏ qua bước này và tự mở DevDex khi muốn sử dụng.
+
+#### 6. Kiểm tra sau khi cài
+
+- Mở DevDex và kiểm tra desktop, taskbar cùng dock có xuất hiện không.
+- Thử di chuyển, đổi kích thước, khôi phục và đóng một ứng dụng dạng cửa sổ.
+- Kiểm tra **Cài đặt → Appearance** về thanh trạng thái. Thanh trạng thái hiển thị mặc định; **Hide status bar** là tùy chọn.
+- Nếu dùng trình quản lý tệp tích hợp trên Android 11 trở lên, ứng dụng có thể yêu cầu quyền **All files access (Truy cập tất cả tệp)**. Chỉ cấp nếu m định dùng tính năng này.
+
+#### Khắc phục sự cố
+
+- **“App not installed” / không thể cài cập nhật:** có thể do chứng thư ký khác nhau. Đừng gỡ bản đang dùng nếu chưa sao lưu dữ liệu cần giữ và chưa chấp nhận khả năng dữ liệu cục bộ của DevDex bị xóa khi gỡ.
+- **Không thấy điều khiển cửa sổ hoặc lớp phủ:** kiểm tra quyền hiển thị trên ứng dụng khác và phần thiết lập Trợ năng mà DevDex hướng dẫn. Thử mở lại ứng dụng sau khi đổi quyền.
+- **Cửa sổ tự do (freeform) không hoạt động:** tính năng phụ thuộc phiên bản Android và firmware. Xem mục [Tương thích và giới hạn](#tương-thích-và-giới-hạn); một số hãng tắt sẵn freeform windows.
+- **Màn hình cấp quyền khác hướng dẫn:** làm theo thông báo Android trên thiết bị của m. Menu riêng của từng hãng có thể khác tên hoặc không có tính năng đó.
+
+Khi báo lỗi, hãy nêu model thiết bị, phiên bản Android/firmware, các bước tái hiện và đính kèm ảnh hoặc video trong [GitHub Issue](https://github.com/devboilol/devdex/issues).
 
 ### Sao lưu cài đặt
 
