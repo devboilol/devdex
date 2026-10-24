@@ -108,6 +108,7 @@ Mở **Cài đặt → Advanced → Backup/Restore Preferences** để xuất ho
 
 - Hướng tới Android 8.0 trở lên; hành vi thực tế phụ thuộc thiết bị và phiên bản Android.
 - Một số tính năng hệ thống hoặc thao tác quản lý tác vụ/cửa sổ có thể cần Root hoặc Shizuku.
+- Thanh trạng thái Android hiển thị mặc định. Vào **Cài đặt → Appearance → Hide status bar** để ẩn khi dùng desktop mode; thanh điều hướng vẫn ở chế độ immersive và có thể hiện tạm thời khi vuốt.
 - Một số nhà sản xuất tắt sẵn chế độ cửa sổ tự do (freeform windows). Trên một số bản ROM RedMagic/ZTE, hãy bật **Force activities to be resizable** và **Enable freeform windows** trong Tùy chọn nhà phát triển; một số bản còn yêu cầu **Cài đặt → Màn hình → Desktop Mode** rồi khởi động lại. Tên mục và khả năng có sẵn tùy OEM/firmware. DevDex không thể khôi phục tính năng đã bị ROM loại bỏ.
 - **Cài đặt → Advanced → Tương thích đa nhiệm → Bật cửa sổ tự do thử nghiệm** là nỗ lực tùy chọn dành cho ROM vẫn cung cấp thiết lập Android tương ứng, không phải cách sửa phổ quát.
 - Ứng dụng tự khóa hướng màn hình có thể bỏ qua yêu cầu xoay thông thường. Công tắc thử nghiệm **Bỏ qua yêu cầu xoay màn hình của ứng dụng** dùng lệnh hệ thống WindowManager trên ROM hỗ trợ, cần Shizuku/Root, ảnh hưởng toàn hệ thống và có thể làm giao diện camera hoặc ứng dụng chỉ chạy dọc hoạt động sai. Mặc định tắt.
