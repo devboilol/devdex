@@ -87,7 +87,6 @@ class FileManagerActivity : AppCompatActivity() {
         currentDirectory = storageRoot
         bindViews()
         configureRecycler()
-        configureActions()
         buildStorageChips()
         updateBreadcrumb()
         if (hasStorageAccess()) refreshFiles() else renderPermissionState()
