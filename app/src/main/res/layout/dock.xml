@@ -31,6 +31,66 @@
                 android:src="@drawable/ic_apps_menu"
                 android:visibility="gone" />
 
+            <!-- Media controls are attached to the taskbar and only visible while a session is playing. -->
+            <LinearLayout
+                android:id="@+id/media_controls_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/btn_bubble_rect"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/media_prev_btn"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_skip_previous"
+                    android:tint="#FFFFFFFF"
+                    android:contentDescription="@string/media_previous"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <ImageView
+                    android:id="@+id/media_play_pause_btn"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_pause"
+                    android:tint="#FFFFFFFF"
+                    android:contentDescription="@string/media_pause"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <ImageView
+                    android:id="@+id/media_next_btn"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_skip_next"
+                    android:tint="#FFFFFFFF"
+                    android:contentDescription="@string/media_next"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/media_title_tv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:maxWidth="112dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/apps_lv"
                 android:layout_width="wrap_content"

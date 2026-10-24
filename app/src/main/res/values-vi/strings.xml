@@ -995,6 +995,9 @@
     <string name="window_controls_enabled_title">Hiện nút điều khiển cửa sổ nổi</string>
     <string name="window_controls_enabled_summary">Hiện nút đổi kích thước và đóng cửa sổ ứng dụng nổi.</string>
     <string name="window_controls_opacity_title">Độ trong suốt nút điều khiển</string>
+    <string name="media_previous">Bài trước</string>
+    <string name="media_pause">Tạm dừng phát</string>
+    <string name="media_next">Bài tiếp theo</string>
     <string name="window_controls_opacity_summary">Điều chỉnh độ trong suốt của cụm nút đổi kích thước/đóng cửa sổ (100% = đậm hoàn toàn).</string>
     <string name="window_resize_25">25% diện tích màn hình</string>
     <string name="window_resize_50">50% diện tích màn hình</string>

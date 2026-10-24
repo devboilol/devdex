@@ -60,7 +60,8 @@ class WindowControlsManager(
     private class Pill(
         val view: LinearLayout,
         val params: WindowManager.LayoutParams,
-        val maxBtn: IconButton
+        val maxBtn: IconButton,
+        val opacityBtn: IconButton
     ) {
         var pkg: String = ""
         var windowBounds = Rect()
@@ -465,9 +466,17 @@ class WindowControlsManager(
         }
         val btnW = dp(34)
         val btnH = dp(30)
-        val max = IconButton(ctx, IconButton.MAXIMIZE)
-        val close = IconButton(ctx, IconButton.CLOSE)
+        val max = IconButton(ctx, IconButton.MAXIMIZE).apply {
+            contentDescription = ctx.getString(R.string.window_resize)
+        }
+        val opacity = IconButton(ctx, IconButton.OPACITY).apply {
+            contentDescription = ctx.getString(R.string.window_controls_opacity_title)
+        }
+        val close = IconButton(ctx, IconButton.CLOSE).apply {
+            contentDescription = ctx.getString(R.string.close)
+        }
         row.addView(max, LinearLayout.LayoutParams(btnW, btnH))
+        row.addView(opacity, LinearLayout.LayoutParams(btnW, btnH))
         row.addView(close, LinearLayout.LayoutParams(btnW, btnH))
 
         val type = if (DeviceUtils.isPureHarmonyOS()) WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
@@ -483,9 +492,10 @@ class WindowControlsManager(
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START }
 
-        val pill = Pill(row, lp, max)
+        val pill = Pill(row, lp, max, opacity)
 
         max.setOnClickListener { showResizeMenu(pill) }
+        opacity.setOnClickListener { showOpacityPicker(pill) }
         close.setOnClickListener { onClose(pill) }
         return pill
     }
@@ -536,17 +546,13 @@ class WindowControlsManager(
 
     private fun showResizeMenu(p: Pill) {
         // The menu remains available even when ActivityManager temporarily hides task IDs.
-        // The square button beside Close opens both sizing presets and opacity.
+        // Resize menu contains sizing presets only. Opacity has its own adjacent icon.
         val menu = PopupMenu(ctx, p.maxBtn)
         menu.menu.add(0, 25, 0, ctx.getString(R.string.window_resize_25))
         menu.menu.add(0, 50, 1, ctx.getString(R.string.window_resize_50))
         menu.menu.add(0, 100, 2, ctx.getString(R.string.window_resize_fullscreen))
-        val opacityPercent = ((prefs.getString("window_controls_opacity", "0.9")
-            ?.toFloatOrNull() ?: 0.9f) * 100f).toInt().coerceIn(15, 100)
-        menu.menu.add(0, 101, 3, ctx.getString(R.string.window_controls_opacity_menu, opacityPercent))
         menu.setOnMenuItemClickListener { item ->
-            if (item.itemId == 101) showOpacityPicker(p)
-            else onResizePreset(p, item.itemId)
+            onResizePreset(p, item.itemId)
             true
         }
         try {
@@ -625,10 +631,10 @@ class WindowControlsManager(
             elevation = dp(8).toFloat()
         }
         try {
-            popup.showAsDropDown(p.view, -dp(82), dp(4))
+            popup.showAsDropDown(p.view, -dp(116), dp(4))
         } catch (e: Exception) {
             try {
-                popup.showAsDropDown(p.maxBtn, -dp(100), dp(4))
+                popup.showAsDropDown(p.opacityBtn, -dp(100), dp(4))
             } catch (ignored: Exception) {
                 Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
             }
@@ -693,7 +699,13 @@ class WindowControlsManager(
 
     /** Small canvas-drawn icon button — no drawable resources needed. */
     private class IconButton(context: Context, var kind: Int) : View(context) {
-        companion object { const val MINIMIZE = 0; const val MAXIMIZE = 1; const val RESTORE = 2; const val CLOSE = 3 }
+        companion object {
+            const val MINIMIZE = 0
+            const val MAXIMIZE = 1
+            const val RESTORE = 2
+            const val CLOSE = 3
+            const val OPACITY = 4
+        }
 
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
@@ -718,6 +730,11 @@ class WindowControlsManager(
                     canvas.drawLine(cx - s * 0.4f, cy - s, cx + s, cy - s, paint)
                     canvas.drawLine(cx + s, cy - s, cx + s, cy + s * 0.4f, paint)
                     canvas.drawLine(cx + s, cy + s * 0.4f, cx + s * 0.4f, cy + s * 0.4f, paint)
+                }
+                OPACITY -> {
+                    canvas.drawCircle(cx, cy, s, paint)
+                    canvas.drawLine(cx, cy - s, cx, cy + s, paint)
+                    canvas.drawLine(cx - s, cy, cx + s, cy, paint)
                 }
                 else -> {
                     canvas.drawLine(cx - s, cy - s, cx + s, cy + s, paint)
