@@ -426,9 +426,13 @@ object AppUtils {
     // ═══════════════════════════════════════════════════════════════════════
 
     private const val WINDOWING_MODE_FULLSCREEN = 1
-    private const val WINDOWING_MODE_SPLIT_PRIMARY = 3
-    private const val WINDOWING_MODE_SPLIT_SECONDARY = 4
     private const val WINDOWING_MODE_FREEFORM   = 5
+
+    private const val PREF_EXPERIMENTAL_FREEFORM = "experimental_freeform_compatibility"
+    private const val PREF_FREEFORM_BACKUP_SAVED = "_devdex_freeform_settings_backup_saved"
+    private const val PREF_FREEFORM_ORIGINAL_ENABLE = "_devdex_original_enable_freeform_support"
+    private const val PREF_FREEFORM_ORIGINAL_RESIZABLE = "_devdex_original_force_resizable_activities"
+    private const val NULL_SETTING_SENTINEL = "__devdex_setting_was_absent__"
 
     fun makeActivityOptions(
         context: Context, mode: String, dockHeight: Int, displayId: Int
@@ -458,18 +462,6 @@ object AppUtils {
         // the display when the user actually chose a secondary display.
         if (Build.VERSION.SDK_INT >= 26 && display != Display.DEFAULT_DISPLAY) {
             options.setLaunchDisplayId(display)
-        }
-
-        // Some tablets advertise split-screen support but not freeform. In that case,
-        // let the caller request the secondary split-screen stage rather than passing
-        // bounds that the platform is documented to ignore.
-        if (mode == "split-primary" || mode == "split-secondary") {
-            setWindowingMode(
-                options,
-                if (mode == "split-primary") WINDOWING_MODE_SPLIT_PRIMARY
-                else WINDOWING_MODE_SPLIT_SECONDARY
-            )
-            return options
         }
 
         // HarmonyOS 5+: freeform windowing is not supported — return basic options with bounds only
@@ -779,23 +771,120 @@ object AppUtils {
     }
 
     /**
-     * Switch a task to a supported Android windowing mode through shell privileges.
-     * This is also used to put an existing fullscreen task into split-screen primary
-     * before launching the next app into split-screen secondary on devices without
-     * real freeform-window support.
+     * True only when the user enabled DevDex's experimental freeform compatibility
+     * option and both Android global settings were actually applied. A persisted
+     * switch alone is not proof that the ROM accepted the setting.
      */
-    fun setTaskWindowingMode(context: Context, taskId: Int, windowingMode: Int): Boolean {
-        if (taskId < 0 || windowingMode !in setOf(
-                WINDOWING_MODE_FULLSCREEN,
-                WINDOWING_MODE_SPLIT_PRIMARY,
-                WINDOWING_MODE_SPLIT_SECONDARY,
-                WINDOWING_MODE_FREEFORM
+    fun isExperimentalFreeformEnabled(context: Context): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        if (!prefs.getBoolean(PREF_EXPERIMENTAL_FREEFORM, false)) return false
+        return try {
+            android.provider.Settings.Global.getString(
+                context.contentResolver, "enable_freeform_support"
+            ) == "1" &&
+                android.provider.Settings.Global.getString(
+                    context.contentResolver, "force_resizable_activities"
+                ) == "1"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Opt-in compatibility path for ROMs that ship without the freeform feature.
+     * The two global settings are Developer Options settings and activating freeform
+     * normally requires a device reboot. Previous values are recorded and restored
+     * when the switch is disabled; DevDex must never silently rewrite these settings
+     * as a side effect of granting an unrelated permission.
+     */
+    fun setExperimentalFreeformCompatibility(context: Context, enabled: Boolean): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val resolver = context.contentResolver
+
+        fun current(key: String): String =
+            android.provider.Settings.Global.getString(resolver, key) ?: NULL_SETTING_SENTINEL
+
+        fun original(key: String): String? {
+            val stored = prefs.getString(key, NULL_SETTING_SENTINEL) ?: NULL_SETTING_SENTINEL
+            return if (stored == NULL_SETTING_SENTINEL) null else stored
+        }
+
+        if (enabled) {
+            if (!prefs.getBoolean(PREF_FREEFORM_BACKUP_SAVED, false)) {
+                try {
+                    prefs.edit()
+                        .putString(PREF_FREEFORM_ORIGINAL_ENABLE, current("enable_freeform_support"))
+                        .putString(PREF_FREEFORM_ORIGINAL_RESIZABLE, current("force_resizable_activities"))
+                        .putBoolean(PREF_FREEFORM_BACKUP_SAVED, true)
+                        .apply()
+                } catch (e: Exception) {
+                    return false
+                }
+            }
+
+            val freeformApplied = putGlobalSettingVerified(context, "enable_freeform_support", "1")
+            val resizableApplied = freeformApplied &&
+                putGlobalSettingVerified(context, "force_resizable_activities", "1")
+            if (freeformApplied && resizableApplied) return true
+
+            // Roll back a partially applied change so a failed attempt does not leave
+            // the tablet in a half-configured state.
+            putGlobalSettingVerified(
+                context, "enable_freeform_support",
+                original(PREF_FREEFORM_ORIGINAL_ENABLE)
             )
-        ) return false
-        return runTaskShellCommand(
-            context,
-            "am task set-windowing-mode $taskId $windowingMode"
+            putGlobalSettingVerified(
+                context, "force_resizable_activities",
+                original(PREF_FREEFORM_ORIGINAL_RESIZABLE)
+            )
+            return false
+        }
+
+        if (!prefs.getBoolean(PREF_FREEFORM_BACKUP_SAVED, false)) return true
+
+        val restoredFreeform = putGlobalSettingVerified(
+            context, "enable_freeform_support",
+            original(PREF_FREEFORM_ORIGINAL_ENABLE)
         )
+        val restoredResizable = putGlobalSettingVerified(
+            context, "force_resizable_activities",
+            original(PREF_FREEFORM_ORIGINAL_RESIZABLE)
+        )
+        if (!restoredFreeform || !restoredResizable) return false
+
+        prefs.edit()
+            .remove(PREF_FREEFORM_ORIGINAL_ENABLE)
+            .remove(PREF_FREEFORM_ORIGINAL_RESIZABLE)
+            .remove(PREF_FREEFORM_BACKUP_SAVED)
+            .apply()
+        return true
+    }
+
+    private fun putGlobalSettingVerified(context: Context, key: String, value: String?): Boolean {
+        if (key !in setOf("enable_freeform_support", "force_resizable_activities")) return false
+        val resolver = context.contentResolver
+
+        fun matches(): Boolean {
+            val actual = try {
+                android.provider.Settings.Global.getString(resolver, key)
+            } catch (e: Exception) {
+                return false
+            }
+            return if (value == null) actual.isNullOrEmpty() else actual == value
+        }
+
+        try {
+            android.provider.Settings.Global.putString(resolver, key, value)
+            if (matches()) return true
+        } catch (e: Exception) {}
+
+        val command = if (value == null) {
+            "settings delete global $key"
+        } else {
+            "settings put global $key $value"
+        }
+        if (!runTaskShellCommand(context, command)) return false
+        return matches()
     }
 
     fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int): Boolean {
