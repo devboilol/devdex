@@ -389,6 +389,7 @@
     <string name="experimental_desktop_widgets_summary">Bật để thử tiện ích Android trên desktop. Mặc định tắt vì một số provider và ROM có lỗi vòng đời.</string>
     <string name="desktop_widgets_picker_unavailable">Không thể mở bộ chọn tiện ích của hệ thống.</string>
     <string name="fm_internal_storage">Bộ nhớ trong</string>
+    <string name="fm_folder">Thư mục</string>
     <string name="fm_downloads">Tệp tải xuống</string>
     <string name="fm_items_count">%1$d mục</string>
     <string name="fm_permission_title">Cần quyền truy cập tệp</string>
