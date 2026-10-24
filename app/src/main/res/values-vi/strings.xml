@@ -369,7 +369,15 @@
     <string name="allow_sysapp_uninstall_summary">Hãy cẩn thận, thao tác này có thể gây rủi ro.</string>
     <string name="hide_status_bar_title">Ẩn thanh trạng thái</string>
     <string name="hide_status_bar_summary">Mặc định tắt để thanh trạng thái Android luôn hiện. Bật lên nếu muốn ẩn thanh này trong chế độ desktop.</string>
-    <string name="multi_window_fallback_unavailable">Thiết bị không hỗ trợ cửa sổ tự do và DevDex chưa bật được chia đôi màn hình. Hãy cấp quyền Shizuku cho DevDex và kiểm tra cả hai ứng dụng có hỗ trợ Cửa sổ song song.</string>
+    <string name="multitasking_compatibility_category">Tương thích đa nhiệm</string>
+    <string name="experimental_freeform_title">Bật cửa sổ tự do thử nghiệm</string>
+    <string name="experimental_freeform_summary">Dành cho ROM ẩn chế độ cửa sổ tự do. Cần Shizuku hoặc Root và thường phải khởi động lại máy. Không bảo đảm hoạt động trên mọi ROM của nhà sản xuất.</string>
+    <string name="experimental_freeform_permission_title">Không thể thay đổi thiết lập đa nhiệm</string>
+    <string name="experimental_freeform_permission_message">DevDex không ghi được thiết lập cửa sổ tự do của Android. Hãy kiểm tra Shizuku đang chạy và đã cấp quyền cho DevDex, hoặc cấp Root. Nếu ROM chặn các thiết lập này, cửa sổ tự do có thể không khả dụng.</string>
+    <string name="experimental_freeform_reboot_title">Cần khởi động lại</string>
+    <string name="experimental_freeform_reboot_message">Đã bật thiết lập cửa sổ tự do thử nghiệm của Android. Hãy khởi động lại máy tính bảng để HyperOS áp dụng. Sau đó, DevDex sẽ thử mở các ứng dụng tương thích trong những cửa sổ riêng.</string>
+    <string name="experimental_freeform_disabled_reboot_message">Đã khôi phục các thiết lập đa nhiệm Android trước đó. Hãy khởi động lại máy để áp dụng.</string>
+    <string name="experimental_freeform_required">ROM này không cung cấp cửa sổ tự do. Vào Cài đặt → Advanced → Tương thích đa nhiệm, bật cửa sổ tự do thử nghiệm rồi khởi động lại máy tính bảng.</string>
     <string name="hide_nav_buttons_title">Ẩn nút điều hướng</string>
     <string name="hide_nav_buttons_summary">Ẩn các nút điều hướng phần mềm của Android. Cần khởi động lại.</string>
     <string name="disable_taskbar_title">Tắt thanh tác vụ hệ thống</string>
