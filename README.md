@@ -1,255 +1,129 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/app/src/main/res/drawable/devdex_icon.webp" width="100" alt="DevDex Logo"/>
-</p>
+# DevDex
+
+<p align="center"><img src="https://raw.githubusercontent.com/devboilol/devdex/main/app/src/main/res/drawable/devdex_icon.webp" width="100" alt="DevDex logo"/></p>
 
 <h1 align="center">DevDex</h1>
 
-<p align="center">
-  A full desktop experience for Android
-</p>
+<p align="center">A Windows-inspired desktop experience for Android</p>
 
 <p align="center">
-  <a href="https://github.com/devboilol/devdex/releases">
-    <img src="https://img.shields.io/github/v/release/devboilol/devdex?style=for-the-badge" alt="Latest release"/>
-  </a>
-  <a href="https://github.com/devboilol/devdex/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/devboilol/devdex?style=for-the-badge" alt="License"/>
-  </a>
-  <a href="https://github.com/devboilol/devdex/releases/latest">
-    <img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android" alt="Download APK"/>
-  </a>
-  <img src="https://img.shields.io/badge/Android-8.0%2B-green?style=for-the-badge&logo=android" alt="Android"/>
+  <a href="https://github.com/devboilol/devdex/actions/workflows/build-apk.yml"><img src="https://img.shields.io/badge/Build-GitHub%20Actions-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white" alt="Build workflow"/></a>
+  <a href="https://github.com/devboilol/devdex/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue?style=for-the-badge" alt="GPL-3.0 license"/></a>
+  <img src="https://img.shields.io/badge/Android-8.0%2B-green?style=for-the-badge&logo=android" alt="Android 8.0+"/>
 </p>
 
----
-
-## What is this?
-
-DevDex turns an Android device into a desktop-style environment with a taskbar, app dock, movable/resizable app windows, and desktop shortcuts. It can run as the home launcher or as an on-demand overlay.
-
-A few advanced features — such as custom display settings and certain task/window operations — require Root or Shizuku. Most desktop UI features do not.
-
-> [!WARNING]
-> **Use DevDex on a secondary device, preferably a tablet.** DevDex uses Android Accessibility and overlay capabilities and may interfere with banking, government, identity, payment, enterprise-authentication, or other security-sensitive apps. Some of these apps may block access or refuse to run while overlays or desktop controls are active. Do not rely on DevDex on your primary device for banking, government services, or other critical secure workflows. Review each permission before granting it.
+<p align="center"><a href="#english">English</a> · <a href="#tiếng-việt">Tiếng Việt</a></p>
 
 ---
 
-## About the project
+<a id="english"></a>
+## English
 
-DevDex is an Android desktop environment focused on a Windows 11-inspired first-run layout, reliable app launching, multi-window management, localization, and portable settings backups. All product-facing documentation and interface copy use the DevDex name. Required license notices and upstream attribution remain intact.
+### About
 
----
+**DevDex** is an independent continuation of the Android desktop experience built on the work of **YoukiDex** and **Smart Dock**. It brings a taskbar, app dock, movable/resizable app windows, and desktop-style controls to Android. DevDex focuses on a desktop-first setup, window-management improvements, localization, and portable settings backups.
 
-<p align="center">
-  <a href="https://github.com/devboilol/devdex/issues">
-    <img src="https://img.shields.io/badge/Support-GitHub%20Issues-238636?style=for-the-badge&logo=github&logoColor=white" alt="Report a bug or request a feature"/>
-  </a>
-</p>
+### Highlights
 
----
+- Desktop-style taskbar and app dock.
+- Movable and resizable app windows, with maximize/restore and close controls for windowed apps.
+- Fullscreen activities are intended to remain free of DevDex window-control overlays.
+- First-run language selection: System default, English, or Vietnamese.
+- Settings export/import using typed JSON backups, with support for older `.sdp` backups.
+- Some advanced system operations require Root or Shizuku; core desktop UI features generally do not.
 
-For release notes and version history, check the [GitHub Releases page](https://github.com/devboilol/devdex/releases) — every release has its own detailed changelog.
+### Quick start
 
----
+1. Install the APK and open DevDex.
+2. Complete the first-run setup and choose a language.
+3. Review each permission carefully. Accessibility and overlay permissions are essential to the desktop experience.
+4. Use DevDex as your launcher or start it on demand using the available shortcut or Quick Settings tile.
 
-## First-run experience
+### Settings backup
 
-- Choose English or Vietnamese during setup.
-- Starts at the desktop with a minimal taskbar, centered app icons, and Windows 11-inspired rounded icon styling.
-- Export and import settings backups from **Settings → Advanced → Backup/Restore Preferences**.
+Open **Settings → Advanced → Backup/Restore Preferences** to export or import settings. New backups use JSON format; older `.sdp` backups remain supported.
 
-**Device recommendation:** a spare tablet is the best fit. Do not use DevDex on a device that must reliably run banking, government, identity, payment, or work-security apps. Accessibility and overlay features can trigger those apps' security restrictions.
+### Safety notice
 
-## Features
+> **Recommended: use DevDex on a secondary device, preferably a tablet.** Accessibility and overlay features may conflict with banking, government, identity-verification, payment, enterprise-authentication, or other security-sensitive apps. Some apps may block access while overlays or desktop controls are active. Keep a regular launcher available and do not depend on DevDex for critical secure workflows on your primary device.
 
-- Windowed apps show two controls: resize/restore and close. Fullscreen activities do not receive a DevDex control overlay.
+### Compatibility and limitations
 
-**Desktop**
-- Accessibility-based overlay — works as your launcher or on-demand from a Quick Settings tile / shortcut
-- Centered floating dock (KDE-style) or classic edge-pinned dock (Windows-style)
-- 3 ready-made dock presets (Minimal / Default / Gesture) that set up everything — nav buttons, quick settings, running-app limits — in one tap, instead of tuning 15 different settings by hand
-- Resizable floating windows for any app, plus real window tiling (maximize, snap left/right/top/bottom)
-- Multiple app windows group under one dock icon, the way Windows or macOS does it
-- Hot corners (top-right / bottom-right, each mappable to its own action)
-- Multi-display support
-- Mouse right-click and hardware keyboard shortcuts work the same as long-press/touch
-- An inline calculator in the app search — type "12+7", get a tappable "19"
+- Designed for Android 8.0 and newer; actual behavior depends on the device and Android version.
+- Selected system-level features and task/window operations may require Root or Shizuku.
+- Some manufacturers disable freeform windows by default.
+- Window controls and fullscreen detection depend partly on Android and device-manufacturer behavior. Please test on your own device.
+- Always-on-top pinning for arbitrary apps is not implemented through the ordinary public Android APIs.
 
-**Power menu**
-- Settings, lock, power off, restart
-- Restart or fully close just DevDex itself, without touching the rest of the phone
-- Switch to another user directly from the same menu
+### Credits and acknowledgements
 
-**Apps**
-- Full app drawer with search and sorting, plus the option to hide apps
-- Deep shortcuts (long-press for quick actions)
-- Icon pack support
-- Per-app launch mode (windowed or fullscreen), remembered per app
-- Optional forced landscape
+DevDex stands on the work of open-source developers. **Thank you to the original authors and contributors:**
 
-**Taskbar & tray**
-- Running apps, tap to minimize/restore
-- Live CPU and RAM usage
-- Battery, Wi-Fi, Bluetooth, volume, date
-- Notifications, with per-app silencing
-- A Quick Settings-style panel with brightness/volume sliders
+- **[Smart Dock](https://github.com/axel358/smartdock) — Axel358:** thank you for creating the original desktop-mode launcher and its open-source foundation.
+- **[YoukiDex](https://github.com/mrYouki/YoukiDex-Android-Desktop) — mrYouki:** thank you for the extensive development and improvements that carried Smart Dock forward and formed the direct basis for DevDex.
+- Thank you to the wider Android and open-source communities whose tools, libraries, bug reports, and contributions help make projects like this possible.
 
-**Live wallpaper**
-- Animated video wallpaper with its own gallery and a built-in editor — crop, pinch/rotate/pan directly with your fingers, brightness/contrast/saturation, background color
-- Portrait and landscape get fully separate settings (scale, position, rotation, even audio speed/pitch), so adjusting one never messes up the other
-- Rendered natively — OpenGL ES or Vulkan, your choice, picked once during setup
-- Desktop grid for icons and widgets, with Nova-style drag-and-drop that pushes things out of the way
-
-**Workshop**
-- A built-in browser for finding wallpapers and fonts, with its own ad blocker (strips ads/popups live as the page loads) and automatic font capture — browse Google Fonts and it grabs and installs whatever font file the page loads, no separate download step
-- Comes with a few sources out of the box (MotionBGs, DesktopHut, MoeWalls for wallpapers; Google Fonts, DaFont, Fontesk for fonts) — add your own by URL
-
-**Plugins**
-- Installs plugin ZIPs (its own format, or actual Magisk modules) the same way a Magisk-style manager would — install, uninstall, and a running-service toggle per plugin
-
-**Performance tweaks**
-- A separate, clearly-labeled tab for the riskier stuff — GPU/thermal/FPS tweaks with names like "Thermal Killer" and "HardCoreGT," each doing exactly what it says on the tin. Not something you need to touch; it's there if you want to push a specific device further and know what you're doing
-
-**Multi-user**
-- Add and switch between device users right from the app, either from a quick popup in the dock or a full management screen
-
-**Cast**
-- Send the desktop or media playback to a Cast device
-
-**Sound & look**
-- Custom sounds for lock/unlock, charging, notifications, etc.
-- Material You colors or fully custom dock bubble color, with adjustable opacity, plus a fully transparent dock option
-- Custom fonts — pick one file for Arabic and another for Latin text, and the app switches between them automatically as you type or scroll, no separate language setting needed
-- Text size scaling, per-app or app-wide, plus a custom number badge you can put on any icon
-
-**With Root or Shizuku**
-- Custom display size/resolution, disabling heads-up notifications, freezing background apps, uninstalling system apps, soft reboot
-- **Auto-grant** — the moment either is detected, the app grants itself everything it needs in one shot (over 20 permissions and system settings) instead of asking permission by permission. Accessibility stays a manual step on purpose, so it's always something you turn on yourself
-- A built-in shell terminal
-
-**Self-test tool**
-- A QA feature (mostly for me) that opens every screen in the app on an isolated virtual display to catch crashes before a release goes out
+DevDex is an independent continuation and is **not an official release** of Smart Dock or YoukiDex, nor is it affiliated with or endorsed by their original maintainers. Original copyright notices and applicable license terms are preserved. See [LICENSE](LICENSE).
 
 ---
 
-## Under the hood
+<a id="tiếng-việt"></a>
+## Tiếng Việt
 
-Mostly Kotlin, with a Rust engine underneath handling the live wallpaper rendering, some math-heavy stuff, and text parsing — anything that's pure computation and doesn't need to talk to Android directly. Roughly 80/20 Kotlin to Rust. Everything that touches Android's actual APIs — the services, the UI, the database — stays in Kotlin, since that's what it's built for.
+### Giới thiệu
 
-Runs on Android 8.0 and up, built with Gradle and Cargo, all of it compiled on-device through Termux.
+**DevDex** là dự án tiếp nối độc lập từ nền tảng Android desktop được phát triển qua **YoukiDex** và **Smart Dock**. Ứng dụng mang đến thanh tác vụ, dock ứng dụng, cửa sổ có thể di chuyển/thay đổi kích thước và các điều khiển kiểu desktop trên Android. DevDex tập trung cải thiện trải nghiệm khởi động vào desktop, quản lý cửa sổ, đa ngôn ngữ và sao lưu cài đặt.
 
----
+### Tính năng chính
 
-## Screenshots
+- Thanh tác vụ và dock ứng dụng theo phong cách desktop.
+- Cửa sổ ứng dụng có thể di chuyển và thay đổi kích thước; có nút phóng to/khôi phục và đóng đối với ứng dụng chạy dạng cửa sổ.
+- Mục tiêu là không hiển thị lớp điều khiển cửa sổ DevDex trên các hoạt động chạy toàn màn hình.
+- Chọn ngôn ngữ ở lần khởi chạy đầu tiên: theo hệ thống, tiếng Anh hoặc tiếng Việt.
+- Xuất/nhập cài đặt bằng bản sao lưu JSON có lưu kiểu dữ liệu; vẫn hỗ trợ bản sao lưu `.sdp` cũ.
+- Một số thao tác hệ thống nâng cao cần Root hoặc Shizuku; các tính năng giao diện desktop cơ bản thường không cần.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="100%" />
-  <br/>
-  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="100%" />
-  <br/>
-  <img src="https://raw.githubusercontent.com/devboilol/devdex/main/fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="100%" />
-</p>
+### Bắt đầu sử dụng
 
----
+1. Cài APK và mở DevDex.
+2. Hoàn tất phần thiết lập ban đầu và chọn ngôn ngữ.
+3. Đọc kỹ từng quyền trước khi cấp. Quyền Trợ năng và quyền hiển thị trên ứng dụng khác là thành phần quan trọng của trải nghiệm desktop.
+4. Dùng DevDex làm trình khởi chạy mặc định hoặc mở khi cần bằng lối tắt hay ô Cài đặt nhanh nếu thiết bị hỗ trợ.
 
-## Quick Start
+### Sao lưu cài đặt
 
-1. Install the APK and open DevDex
-2. Grant the permissions it asks for — Accessibility is the one that actually matters, nothing draws without it
-3. Then either add the Quick Settings tile and tap it, set DevDex as your launcher, or use the home-screen shortcut it offers on first launch
+Mở **Cài đặt → Advanced → Backup/Restore Preferences** để xuất hoặc nhập cài đặt. Bản sao lưu mới dùng định dạng JSON; các bản `.sdp` cũ vẫn được hỗ trợ.
 
----
+### Cảnh báo an toàn
 
-## Optional: Root or Shizuku
+> **Khuyến nghị dùng DevDex trên thiết bị phụ, tốt nhất là máy tính bảng.** Các tính năng Trợ năng và hiển thị đè có thể xung đột với ứng dụng ngân hàng, dịch vụ chính phủ, xác minh danh tính, thanh toán, xác thực doanh nghiệp hoặc ứng dụng nhạy cảm về bảo mật. Một số ứng dụng có thể chặn truy cập khi lớp phủ hoặc nút điều khiển cửa sổ đang hoạt động. Hãy giữ lại trình khởi chạy thông thường và không phụ thuộc vào DevDex cho các thao tác bảo mật quan trọng trên thiết bị chính.
 
-A few features need `WRITE_SECURE_SETTINGS`-level access. Three ways to get there:
+### Tương thích và giới hạn
 
-- **Shizuku** (easiest long-term) — install it, start it once, then grant DevDex permission when it asks.
-- **Root** — Magisk or KernelSU, detected automatically, nothing to set up.
-- **ADB**, if you'd rather do it manually and don't have either:
-  ```bash
-  adb shell pm grant com.youki.dex android.permission.WRITE_SECURE_SETTINGS
-  adb shell appops set com.youki.dex GET_USAGE_STATS allow
-  ```
+- Hướng tới Android 8.0 trở lên; hành vi thực tế phụ thuộc thiết bị và phiên bản Android.
+- Một số tính năng hệ thống hoặc thao tác quản lý tác vụ/cửa sổ có thể cần Root hoặc Shizuku.
+- Một số nhà sản xuất tắt sẵn chế độ cửa sổ tự do (freeform windows).
+- Việc nhận diện toàn màn hình và hiển thị điều khiển cửa sổ còn phụ thuộc Android và tùy biến của nhà sản xuất. Hãy kiểm tra trên thiết bị thực tế.
+- Tính năng ghim cửa sổ ứng dụng bất kỳ luôn nổi trên cùng chưa được triển khai bằng các API Android công khai thông thường.
 
-Without any of these, the app still works — you just won't have the handful of features that need system-level access.
+### Ghi công và lời cảm ơn
 
----
+DevDex được xây dựng dựa trên công sức của các nhà phát triển mã nguồn mở. **Xin chân thành cảm ơn các tác giả và cộng tác viên ban đầu:**
 
-## Permissions
+- **[Smart Dock](https://github.com/axel358/smartdock) — Axel358:** cảm ơn tác giả đã tạo ra trình khởi chạy desktop gốc và nền tảng mã nguồn mở ban đầu.
+- **[YoukiDex](https://github.com/mrYouki/YoukiDex-Android-Desktop) — mrYouki:** cảm ơn tác giả đã tiếp tục phát triển, cải tiến Smart Dock và tạo nên nền tảng trực tiếp để DevDex kế thừa.
+- Cảm ơn cộng đồng Android và mã nguồn mở vì các công cụ, thư viện, báo lỗi và đóng góp đã giúp những dự án như thế này có thể phát triển.
 
-| Permission | What it's for |
-|---|---|
-| `SYSTEM_ALERT_WINDOW` | Draw the dock and floating windows over other apps |
-| Accessibility Service | The core of how the overlay works |
-| `PACKAGE_USAGE_STATS` | Show recent and running apps |
-| `WRITE_SECURE_SETTINGS` / `WRITE_SETTINGS` | System-level settings (Root/Shizuku/ADB only) |
-| `QUERY_ALL_PACKAGES` | List installed apps |
-| Notification Listener | Show and manage notifications from the dock |
-| `MANAGE_USERS` | Multi-user switching |
-| `MANAGE_EXTERNAL_STORAGE` / media permissions | Wallpapers, Workshop downloads, backup/restore |
-| `BLUETOOTH*` | Bluetooth indicator in the tray |
-| `CAPTURE_VIDEO_OUTPUT` | Self-test tool's virtual display (Root/Shizuku only) |
+DevDex là dự án tiếp nối độc lập, **không phải bản phát hành chính thức** của Smart Dock hoặc YoukiDex, cũng không liên kết hay được các tác giả gốc bảo trợ. Các thông báo bản quyền và điều khoản giấy phép áp dụng được giữ lại. Xem [LICENSE](LICENSE).
 
 ---
 
-## Known issues
+## License / Giấy phép
 
-**RedMagic & ZTE phones don't do floating windows out of the box.** These brands turn Freeform Windows off by default. Fix:
-1. Enable Developer Options (tap Build Number 7 times)
-2. Turn on **Force activities to be resizable** and **Enable freeform windows**
-3. Go to **Settings → Display → Desktop Mode** and enable it
-4. Reboot
+This project is distributed under **GNU GPL-3.0**. / Dự án được phân phối theo giấy phép **GNU GPL-3.0**.
 
-Not a DevDex bug — that's just how those phones ship.
+See [LICENSE](LICENSE) for the full terms. / Xem [LICENSE](LICENSE) để đọc đầy đủ điều khoản.
 
-**Forced landscape doesn't work on some apps.** If an app hardcodes portrait mode, there's no way to override that without root or system-level access — that's an Android limitation, not something fixable from a regular app.
+## Support / Báo lỗi
 
-**Desktop widgets are temporarily disabled.** The code's there, but it's switched off while a few crash edge cases get sorted out first.
-
-**The built-in file manager is disabled.** It exists in the code but it's broken and unreliable right now, so it's turned off until it's rebuilt properly. Use any regular file manager app in the meantime.
-
----
-
-## FAQ
-
-**Do I have to set it as my default launcher?**
-No, it works either way — but if you don't, you'll need to open it by hand each time instead of it loading on boot. Most people just set it as default.
-
-**The dock disappeared after a reboot.**
-Check that Accessibility is still turned on, and that your phone's battery settings aren't killing it in the background — common on MIUI, ColorOS, and similar.
-
-**Is this fully open source?**
-Yes. Everything is built and pushed straight from a phone through Termux — no computer involved anywhere in the process. Contributions and bug reports are always welcome.
-
-**Accessibility won't turn on for me on Android 13+.**
-That's Android blocking it because the app wasn't installed from the Play Store. One-time fix:
-```bash
-adb shell appops set com.youki.dex REQUEST_INSTALL_PACKAGES allow
-```
-Then go back to Settings → Accessibility and it should work. Installing via `adb install` instead of a regular APK also skips this entirely.
-
----
-
-## Not planned
-
-| Feature | Why not |
-|---|---|
-| Background blur on windows | Android doesn't allow real-time blur on overlays without system privileges |
-| Play Store release | The permissions this needs aren't allowed there |
-| iOS support | Different OS, not something this codebase can do |
-| Cloud sync for settings | Local backup/restore already covers it |
-
----
-
-## Disclaimer
-
-Independent, one-person project. Not affiliated with or endorsed by anyone.
-
----
-
-## Credits
-
-DevDex is an independent continuation of an open-source Android desktop launcher. Original copyright notices and license terms are preserved; see [LICENSE](LICENSE).
-
-Thanks to the open-source Android community for the tools and libraries this project builds on.
+For bug reports and feature requests, open a [GitHub Issue](https://github.com/devboilol/devdex/issues). / Để báo lỗi hoặc đề xuất tính năng, hãy tạo [GitHub Issue](https://github.com/devboilol/devdex/issues).
