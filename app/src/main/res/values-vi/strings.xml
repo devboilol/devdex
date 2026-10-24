@@ -344,7 +344,7 @@
     <string name="hot_corners_delay_title">Độ trễ kích hoạt (mili giây)</string>
     <string name="hot_corners_width_title">Độ rộng vùng kích hoạt (dp)</string>
     <string name="hot_corners_width_summary">Độ rộng dải cảm ứng hoặc di chuột dọc mép màn hình. Tăng giá trị để dễ kích hoạt hơn.</string>
-    <string name="these_settings_are_intended_fo">Các cài đặt này dành cho người dùng nâng cao. Chỉ thay đổi khi bạn hiểu rõ tác dụng.</string>
+    <string name="these_settings_are_intended_fo">Cài đặt nâng cao. Nên dùng DevDex trên thiết bị phụ, tốt nhất là máy tính bảng. Quyền Trợ năng và lớp phủ có thể gây xung đột với ứng dụng ngân hàng, cơ quan nhà nước, định danh, thanh toán hoặc ứng dụng nhạy cảm về bảo mật.</string>
     <string name="prefer_last_display_summary">Ưu tiên hiển thị ứng dụng và dock trên màn hình phụ.</string>
     <string name="custom_toasts">Thông báo nổi tùy chỉnh</string>
     <string name="custom_toasts_summary">Dùng thông báo nổi tích hợp cho ứng dụng khi dock đang ghim.</string>

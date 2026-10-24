@@ -268,7 +268,7 @@
 
     <!-- Advanced page -->
     <string name="advanced">Advanced</string>
-    <string name="these_settings_are_intended_fo">These settings are intended for advanced users. Only change them if you know what you are doing</string>
+    <string name="these_settings_are_intended_fo">Advanced settings. Use DevDex on a secondary device, preferably a tablet. Accessibility and overlays may interfere with banking, government, identity, payment, or other security-sensitive apps.</string>
     <string name="prefer_last_display">Prefer secondary displays</string>
     <string name="prefer_last_display_summary">Prefer secondary displays for displaying apps and the dock</string>
     <string name="restart_accessibility">Changing this setting requires restarting the Accessibility service</string>
