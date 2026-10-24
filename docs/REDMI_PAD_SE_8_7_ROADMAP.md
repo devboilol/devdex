@@ -5,8 +5,9 @@
 
 ## Research findings that affect architecture
 
-- Xiaomi documents Parallel Windows on this model as a split-screen view for two apps and directs users to the supported-app list under Settings → Features for tablets → Parallel windows. This is not a promise that every app can become a freely resizable desktop window. Source: https://www.mi.com/vn/support/faq/details/KA-497400/
-- Android documents that ActivityOptions.setLaunchBounds() is ignored when the system lacks FEATURE_FREEFORM_WINDOW_MANAGEMENT (or the relevant PiP feature). DevDex must verify freeform capability and privileged-command results; a successful Kotlin call is not proof of a real freeform task. Source: https://developer.android.com/reference/android/app/ActivityOptions#setLaunchBounds(android.graphics.Rect)
+- Xiaomi support pages conflict across variants and firmware: one FAQ documents Parallel Windows, while a separate REDMI Pad SE 8.7 4G product FAQ says Split screen is not supported. If the actual tablet only shows Horizontal app layout under Features for tablets and has no Parallel windows entry, do not claim that native split-screen is available on that ROM. Sources: https://www.mi.com/global/support/faq/details/KA-492516/ and https://www.mi.com/ph/support/faq/details/KA-257495/
+- Android documents that ActivityOptions.setLaunchBounds() is ignored when the system lacks FEATURE_FREEFORM_WINDOW_MANAGEMENT (or the relevant PiP feature). DevDex must verify capability and never treat a successful Kotlin call as proof that a real window was created. Source: https://developer.android.com/reference/android/app/ActivityOptions#setLaunchBounds(android.graphics.Rect)
+- When freeform is not advertised, expose an explicit, reversible compatibility option in Settings → Advanced. With Shizuku/Root authorization, it may set Android's experimental enable_freeform_support and force_resizable_activities globals, preserving previous values and requiring reboot. ROM vendors can still ignore or block these settings, so show a clear failure instead of claiming success.
 - Xiaomi's generic HyperOS Workstation guide describes a desktop-like multi-window mode, but it is not proof that the Redmi Pad SE 8.7 exposes every Workstation feature. Do not build against that assumption. Source: https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2034
 - A community firmware index lists HyperOS 3.1 / Android 16 builds for some Redmi Pad SE 8.7 regions in 2026; release timing and build numbers vary by region. Treat this as a hint, not a substitute for checking the tablet itself. Source: https://mirom.ezbox.idv.tw/en/phone/flare/
 
@@ -18,7 +19,7 @@
 |---|---|---|
 | Desktop home, dock, app drawer | Already present in DevDex | Keep stable; avoid redesign until the window system passes tests |
 | Fullscreen app launch | Previously forced a hidden windowing mode even for ordinary fullscreen launches | Use Android's normal launch path on the built-in display; pass special options only when needed |
-| Real freeform windows | Requested through launch options and shell settings; OEM support can vary | Probe capability and verify command results; gracefully fall back if unsupported |
+| Real freeform windows | Requested through launch options; some ROMs hide the feature | Probe capability; expose explicit experimental compatibility settings and reboot guidance when supported |
 | Close / resize overlay | Existing compact square + X pill | Never hide the pill only because a task ID lookup briefly fails |
 | 25%, 50%, fullscreen presets | Existing task resize commands | Resolve missing/stale task IDs on demand through ShellManager / Shizuku / root and show a clear failure state |
 | Title bar with app name + drag area | Not yet a complete custom title bar; current custom overlay is only controls | Implement only when a usable native caption is absent |
@@ -28,20 +29,21 @@
 
 ### Order of work
 
-1. **Launch safety:** fullscreen launches use Android's normal path. Do not globally enable the developer-only development_force_resizable_activities override while granting unrelated permissions; old DevDex versions that set it are migrated back to the safer default once.
+1. **Launch safety:** fullscreen launches use Android's normal path. Do not silently change global windowing settings as a side effect of granting unrelated permissions. The user may explicitly enable experimental freeform compatibility in Advanced settings; store and restore the original global values and explain that a reboot is required.
 2. **Window-control invariants:** a live floating window should keep its control pill even if Accessibility temporarily returns a null root or ActivityManager hides the task ID. Resolve the task when the user invokes an action. Use a short grace period before deleting a control whose window genuinely vanished.
 3. **Dock collision:** reposition controls outside dock bounds rather than setting the whole pill to GONE.
-4. **Capability probe:** read OS/API/build, FEATURE_FREEFORM_WINDOW_MANAGEMENT, Shizuku connection + grant state, and the result of the freeform shell commands. Distinguish "system feature absent" from "Shizuku not running", "permission denied", and "command rejected".
+4. **Capability probe:** read OS/API/build, FEATURE_FREEFORM_WINDOW_MANAGEMENT, experimental freeform setting values, Shizuku connection + grant state, and actual task behavior. Distinguish "system feature absent" from "Shizuku not running", "permission denied", "reboot required", and "ROM rejected the mode".
 5. **Title bar / movement:** when the OS does not provide visible, interactive caption controls, add a lightweight title bar containing app label, drag region, resize/menu button, and X. Throttle move updates; do not issue a shell resize command for every raw pointer event.
 6. **Persistence / recovery:** store task bounds when they change, restore only if the same package/task can be identified, and never force-stop an app as a fallback for a failed close/resize command.
 
 ### P0 acceptance tests on the physical tablet
 
 - Launch ordinary fullscreen apps repeatedly without duplicate start requests or freeform launch options.
+- Test any two compatible, unrelated third-party apps, and verify that both are simultaneously visible as separate windows; do not hard-code a specific package pair as the acceptance criterion.
 - Open several floating-capable apps and confirm square/X controls remain visible after focus changes, resizing, dock show/hide, and transient service events.
 - Exercise 25%, 50%, and fullscreen 10 times each; verify the task actually changes mode/bounds and surface a reason on failure.
 - Stop/restart Shizuku or revoke DevDex's Shizuku permission while windows are open. Controls should remain visible; actions should fail with a specific state and recover after reconnecting.
-- Test at least a browser, system Settings, file manager, video player, and one game. Apps that reject resize/freeform must fall back to normal fullscreen rather than enter a crash/retry loop.
+- Test a browser, a productivity app, a messaging/AI app, system Settings, file manager, video player, and one game. Apps that reject resize/freeform must report the limitation rather than enter a crash/retry loop or silently replace the existing window.
 - Test both dock positions, status-bar reveal, rotation changes, and window bounds near every screen edge.
 
 ## P1 — after the P0 gate is green
@@ -71,4 +73,4 @@
 
 ## Compatibility principle
 
-**Do not turn a capability request into a system-wide force-resize setting.** Request freeform per launch where possible, verify what actually happened, and fall back to Android/HyperOS fullscreen or supported split-screen for apps that cannot safely run in a freeform window.
+**Do not turn a launch request into a false success.** Prefer freeform windows when available. When the ROM hides freeform, offer a reversible, explicit compatibility path with a reboot requirement; then verify task/window behavior. If the ROM still blocks multi-window, report that clearly instead of pretending native Parallel Windows exists.
