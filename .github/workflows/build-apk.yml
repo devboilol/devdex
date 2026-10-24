@@ -9,7 +9,7 @@ on:
         default: "3.5.0-rc.1"
         type: string
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, 'release/**' ]
   push:
     branches: [ main, master ]
     tags:
@@ -40,6 +40,8 @@ jobs:
           set -euo pipefail
           if [[ "${GITHUB_REF}" == refs/tags/v*-rc.* ]]; then
             version="${GITHUB_REF_NAME#v}"
+          elif [[ "${GITHUB_REF}" == refs/heads/release/* ]]; then
+            version="${GITHUB_REF#refs/heads/release/}"
           elif [[ -n "${INPUT_VERSION_NAME}" ]]; then
             version="${INPUT_VERSION_NAME}"
           else
