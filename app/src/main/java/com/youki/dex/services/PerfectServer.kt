@@ -2212,7 +2212,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 // A few OEM builds reject ActivityOptions even when the
                 // target app itself is perfectly launchable.
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (launchMode == "fullscreen" && displayId == Display.DEFAULT_DISPLAY) {
+                if (launchMode == "fullscreen" &&
+                    displayId == Display.DEFAULT_DISPLAY &&
+                    !sharedPreferences.getBoolean("prefer_last_display", false)
+                ) {
                     // Let Android/HyperOS launch this Activity exactly as its own
                     // launcher would. No hidden windowing mode or display override.
                     context.startActivity(launchIntent)
@@ -4607,6 +4610,45 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 if (shizuku.hasPermission) {
+                    // One-time safety migration: older DevDex versions enabled the
+                    // global developer option that forces every app Activity to be
+                    // resizable. That override can destabilize apps that expect their
+                    // normal fullscreen launch path, and is not needed for apps / ROM
+                    // features that genuinely support freeform. Reset the legacy
+                    // value once, then leave any later user choice alone.
+                    val forceResizeMigrationKey = "devdex_force_resizable_safety_migration_v1"
+                    if (!sharedPreferences.getBoolean(forceResizeMigrationKey, false)) {
+                        try {
+                            val oldValue = shizuku.runShellSync(
+                                "settings get global development_force_resizable_activities"
+                            ).trim()
+                            if (oldValue != "0") {
+                                shizuku.runShellSync(
+                                    "settings put global development_force_resizable_activities 0"
+                                )
+                            }
+                            val verified = shizuku.runShellSync(
+                                "settings get global development_force_resizable_activities"
+                            ).trim()
+                            if (verified == "0") {
+                                sharedPreferences.edit()
+                                    .putBoolean(forceResizeMigrationKey, true)
+                                    .apply()
+                                android.util.Log.i(
+                                    "DockService",
+                                    "Disabled legacy global force-resizable override"
+                                )
+                            } else {
+                                android.util.Log.w(
+                                    "DockService",
+                                    "Could not verify force-resizable safety migration; will retry next start"
+                                )
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.w("DockService", "Force-resizable safety migration failed", e)
+                        }
+                    }
+
                     // FIX #14: Check current value before writing to avoid redundant DB writes on every service start
                     val current = android.provider.Settings.Global.getInt(contentResolver, "enable_freeform_support", 0)
                     if (current != 1)

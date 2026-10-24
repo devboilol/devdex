@@ -109,11 +109,10 @@ class ShizukoManager private constructor(private val context: Context) {
                 if (sdkInt >= 31) {
                     add("wm set-multi-window-config --freeformWindowManagement true")
                 }
-                // Android 11+ developer-option equivalent of "Force activities to
-                // be resizable" — without this, apps declaring
-                // resizeableActivity=false get pushed back to fullscreen even
-                // inside a freeform task.
-                add("settings put global development_force_resizable_activities 1")
+                // Do not enable development_force_resizable_activities globally.
+                // This is a developer compatibility override, not a safe production
+                // prerequisite for freeform. Forcing every Activity to resize can break
+                // apps that expect fullscreen; request freeform per launch instead.
                 // Android 15 (API 35): Desktop Windowing Mode. Without these,
                 // freeform windows on API 35 render without the system caption bar.
                 if (sdkInt == 35) {
