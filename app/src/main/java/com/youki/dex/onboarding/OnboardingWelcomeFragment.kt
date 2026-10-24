@@ -5,7 +5,9 @@ import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Spinner
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
+import androidx.core.os.LocaleListCompat
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
 import com.youki.dex.R
@@ -26,7 +28,20 @@ class OnboardingWelcomeFragment : Fragment(R.layout.fragment_onboarding_welcome)
         spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
             override fun onItemSelected(parent: AdapterView<*>?, item: View?, position: Int, id: Long) {
-                values.getOrNull(position)?.let { prefs.edit { putString("app_language", it) } }
+                val selectedLanguage = values.getOrNull(position) ?: return
+                val savedLanguage = prefs.getString("app_language", "system") ?: "system"
+
+                // Spinner emits an initial selection as soon as it is attached.
+                // Ignore it when it matches the saved value; apply only a real change.
+                if (selectedLanguage == savedLanguage) return
+
+                prefs.edit { putString("app_language", selectedLanguage) }
+                AppCompatDelegate.setApplicationLocales(
+                    if (selectedLanguage == "system") LocaleListCompat.getEmptyLocaleList()
+                    else LocaleListCompat.forLanguageTags(selectedLanguage)
+                )
+                // AppCompat recreates the activity for the selected locale, so labels
+                // throughout onboarding update immediately instead of waiting for Done.
             }
         }
     }
