@@ -8,6 +8,16 @@
     </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/navigation">
+        <ListPreference
+            android:key="nav_button_style"
+            android:title="@string/nav_button_style_title"
+            android:summary="@string/nav_button_style_summary"
+            android:entries="@array/nav_button_styles"
+            android:entryValues="@array/nav_button_style_values"
+            android:defaultValue="pixel" />
+        <com.youki.dex.preferences.AppChooserPreference
+            android:key="app_assistant"
+            android:title="@string/app_assistant_title" />
 		<SwitchPreferenceCompat
             android:key="enable_nav_apps"
             android:title="@string/enable_apps_btn"
