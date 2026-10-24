@@ -797,15 +797,15 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             }
         } else {
             @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                if (hideStatusBar) {
-                    View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                } else {
-                    View.SYSTEM_UI_FLAG_VISIBLE
-                }
-            )
+            val layoutFlags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            @Suppress("DEPRECATION")
+            val visibilityFlags = if (hideStatusBar) {
+                View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            } else {
+                0
+            }
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = layoutFlags or visibilityFlags
         }
     }
 
