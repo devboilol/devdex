@@ -3801,13 +3801,13 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 R.drawable.ic_nav_oneui_recents
             )
             "aosp" -> Triple(
-                R.drawable.ic_nav_aosp_back,
-                R.drawable.ic_nav_aosp_home,
-                R.drawable.ic_nav_aosp_recents
+                R.drawable.ic_back,
+                R.drawable.ic_home,
+                R.drawable.ic_recents
             )
             else -> Triple(
                 R.drawable.ic_nav_pixel_back,
-                R.drawable.ic_nav_pixel_home,
+                R.drawable.ic_home,
                 R.drawable.ic_nav_pixel_recents
             )
         }
