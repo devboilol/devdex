@@ -887,6 +887,76 @@ object AppUtils {
         return matches()
     }
 
+
+    private const val PREF_ORIENTATION_OVERRIDE_SAVED = "devdex_orientation_override_saved"
+    private const val PREF_ORIENTATION_OVERRIDE_ORIGINAL = "devdex_orientation_override_original"
+
+    private fun runTaskShellQuery(context: Context, command: String): String? {
+        val wrapped = "$command; __devdex_exit=\$?; echo __DEVDEX_EXIT_CODE:\$__devdex_exit"
+        fun parse(output: String?): String? {
+            if (output.isNullOrBlank()) return null
+            val marker = Regex("""__DEVDEX_EXIT_CODE:(\d+)""").find(output) ?: return null
+            if (marker.groupValues[1] != "0") return null
+            val value = output.substring(0, marker.range.first).trim()
+            if (Regex("(?i)(permission denied|not allowed|unknown command|not found|failed|securityexception|exception occurred)")
+                    .containsMatchIn(value)) return null
+            return value.takeIf { it.isNotBlank() }
+        }
+        try {
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", wrapped))
+            if (process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) {
+                val stdout = process.inputStream.bufferedReader().readText()
+                val stderr = process.errorStream.bufferedReader().readText()
+                if (process.exitValue() == 0) parse("$stdout\n$stderr")?.let { return it }
+            } else process.destroyForcibly()
+        } catch (e: Exception) {}
+        try {
+            val shell = com.youki.dex.server.ShellManager
+            if (shell.isAvailable) parse(shell.execSync(wrapped))?.let { return it }
+        } catch (e: Exception) {}
+        try {
+            val shizuku = ShizukoManager.getInstance(context)
+            if (shizuku.hasPermission) parse(shizuku.runShellSyncWithStderr(wrapped))?.let { return it }
+        } catch (e: Exception) {}
+        return try { parse(DeviceUtils.runAsRoot(wrapped)) } catch (e: Exception) { null }
+    }
+
+    private fun readIgnoreOrientationRequests(context: Context): Boolean? {
+        val output = runTaskShellQuery(context, "wm get-ignore-orientation-request") ?: return null
+        return Regex("""(?i)ignoreOrientationRequest\s+(true|false)""")
+            .find(output)?.groupValues?.get(1)?.equals("true", ignoreCase = true)
+    }
+
+    /** Experimental system-wide override for apps that force portrait orientation. */
+    fun setIgnoreOrientationRequests(context: Context, enabled: Boolean): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val savedKey = PREF_ORIENTATION_OVERRIDE_SAVED
+        val originalKey = PREF_ORIENTATION_OVERRIDE_ORIGINAL
+        val current = readIgnoreOrientationRequests(context)
+        if (enabled) {
+            if (current == null) return false
+            if (!prefs.getBoolean(savedKey, false)) {
+                prefs.edit().putBoolean(originalKey, current).putBoolean(savedKey, true).apply()
+            }
+            if (!runTaskShellCommand(context, "wm set-ignore-orientation-request true") ||
+                readIgnoreOrientationRequests(context) != true
+            ) {
+                val original = prefs.getBoolean(originalKey, false)
+                runTaskShellCommand(context, "wm set-ignore-orientation-request $original")
+                prefs.edit().remove(savedKey).remove(originalKey).apply()
+                return false
+            }
+            return true
+        }
+        if (!prefs.getBoolean(savedKey, false)) return true
+        val original = prefs.getBoolean(originalKey, false)
+        if (!runTaskShellCommand(context, "wm set-ignore-orientation-request $original") ||
+            readIgnoreOrientationRequests(context) != original
+        ) return false
+        prefs.edit().remove(savedKey).remove(originalKey).apply()
+        return true
+    }
+
     fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int): Boolean {
         if (taskId < 0) return false
         val bounds = makeLaunchBounds(context, mode, dockHeight)

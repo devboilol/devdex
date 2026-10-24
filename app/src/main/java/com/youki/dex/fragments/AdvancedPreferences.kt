@@ -58,9 +58,7 @@ class AdvancedPreferences : PreferenceFragmentCompat() {
                 val applied = AppUtils.setExperimentalFreeformCompatibility(context, enabled)
                 if (!applied) {
                     if (enabled) {
-                        try {
-                            com.youki.dex.utils.ShizukoManager.getInstance(context).requestPermission()
-                        } catch (e: Exception) {}
+                        try { com.youki.dex.utils.ShizukoManager.getInstance(context).requestPermission() } catch (e: Exception) {}
                     }
                     MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.experimental_freeform_permission_title)
@@ -71,10 +69,31 @@ class AdvancedPreferences : PreferenceFragmentCompat() {
                 } else {
                     MaterialAlertDialogBuilder(context)
                         .setTitle(R.string.experimental_freeform_reboot_title)
-                        .setMessage(
-                            if (enabled) R.string.experimental_freeform_reboot_message
-                            else R.string.experimental_freeform_disabled_reboot_message
-                        )
+                        .setMessage(if (enabled) R.string.experimental_freeform_reboot_message else R.string.experimental_freeform_disabled_reboot_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    true
+                }
+            }
+
+        findPreference<SwitchPreferenceCompat>("ignore_orientation_requests")
+            ?.setOnPreferenceChangeListener { _, newValue ->
+                val enabled = newValue as Boolean
+                val context = requireContext()
+                if (!AppUtils.setIgnoreOrientationRequests(context, enabled)) {
+                    if (enabled) {
+                        try { com.youki.dex.utils.ShizukoManager.getInstance(context).requestPermission() } catch (e: Exception) {}
+                    }
+                    MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.orientation_override_unavailable_title)
+                        .setMessage(R.string.orientation_override_unavailable_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    false
+                } else {
+                    MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.orientation_override_applied_title)
+                        .setMessage(if (enabled) R.string.orientation_override_applied_message else R.string.orientation_override_restored_message)
                         .setPositiveButton(android.R.string.ok, null)
                         .show()
                     true

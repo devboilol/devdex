@@ -125,6 +125,18 @@
             android:defaultValue="false"
             android:title="@string/experimental_freeform_title"
             android:summary="@string/experimental_freeform_summary" />
+
+        <SwitchPreferenceCompat
+            android:key="ignore_orientation_requests"
+            android:defaultValue="false"
+            android:title="@string/ignore_orientation_requests_title"
+            android:summary="@string/ignore_orientation_requests_summary" />
+
+        <SwitchPreferenceCompat
+            android:key="experimental_desktop_widgets"
+            android:defaultValue="false"
+            android:title="@string/experimental_desktop_widgets_title"
+            android:summary="@string/experimental_desktop_widgets_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory
