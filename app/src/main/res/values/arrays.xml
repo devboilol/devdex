@@ -219,6 +219,17 @@
         <item>9_16</item>
     </string-array>
 
+    <string-array name="nav_button_styles">
+        <item>@string/nav_style_pixel</item>
+        <item>@string/nav_style_oneui</item>
+        <item>@string/nav_style_aosp</item>
+    </string-array>
+    <string-array name="nav_button_style_values" translatable="false">
+        <item>pixel</item>
+        <item>oneui</item>
+        <item>aosp</item>
+    </string-array>
+
     <string-array name="app_language_entries">
         <item>@string/language_system_default</item>
         <item>@string/language_english</item>
