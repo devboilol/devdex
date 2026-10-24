@@ -4621,7 +4621,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                         try {
                             val oldValue = shizuku.runShellSync(
                                 "settings get global development_force_resizable_activities"
-                            ).trim()
+                            ).orEmpty().trim()
                             if (oldValue != "0") {
                                 shizuku.runShellSync(
                                     "settings put global development_force_resizable_activities 0"
@@ -4629,7 +4629,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                             }
                             val verified = shizuku.runShellSync(
                                 "settings get global development_force_resizable_activities"
-                            ).trim()
+                            ).orEmpty().trim()
                             if (verified == "0") {
                                 sharedPreferences.edit()
                                     .putBoolean(forceResizeMigrationKey, true)
