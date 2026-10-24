@@ -68,6 +68,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     private lateinit var backgroundLayout: FrameLayout
     private lateinit var desktopContainer: FrameLayout
     private lateinit var serviceBtn: MaterialButton
+    private lateinit var emptyDesktopState: View
     private lateinit var prefs: SharedPreferences
     private var dockServiceReceiver: BroadcastReceiver? = null
     private var bgTouchX = 0f
@@ -134,6 +135,8 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         backgroundLayout = findViewById(R.id.ll_background)
         desktopContainer  = findViewById(R.id.desktop_icons_container)
         serviceBtn        = findViewById(R.id.service_btn)
+        emptyDesktopState = findViewById(R.id.empty_desktop_state)
+        findViewById<MaterialButton>(R.id.desktop_open_settings).setOnClickListener { openSettingsScreen() }
 
         // GitHub issue #21: hiding the status/nav bar was unconditional —
         // no way to opt out. "hide_system_bars" defaults to true so
@@ -145,7 +148,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         applyDockPadding()
         applyStatusBarInsetHandling()
 
-        serviceBtn.setOnClickListener { startActivity(Intent(this, MainActivity::class.java)) }
+        serviceBtn.setOnClickListener { openSettingsScreen() }
 
         backgroundLayout.setOnLongClickListener {
             showDesktopEmptySpaceMenu(bgTouchX, bgTouchY)
@@ -191,6 +194,24 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             .show()
     }
 
+    private fun openSettingsScreen() {
+        // Settings must open as a normal, visible Activity. Do not route it through
+        // DockService.launchApp("standard"), which intentionally requests a freeform
+        // window and can leave Settings appearing empty on devices without reliable
+        // freeform support.
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        )
+    }
+
+    private fun updateEmptyDesktopState() {
+        if (!::emptyDesktopState.isInitialized || !::desktopContainer.isInitialized) return
+        val serviceReady = com.youki.dex.utils.DeviceUtils.isAccessibilityServiceEnabled(this)
+        emptyDesktopState.visibility =
+            if (serviceReady && desktopContainer.childCount == 0) View.VISIBLE else View.GONE
+    }
+
     override fun onResume() {
         super.onResume()
         // FIX: serviceBtn ("Let's start") defaults to VISIBLE in XML and is
@@ -207,6 +228,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             // Also ask the dock to re-show itself in case it hid on pause
             sendBroadcast(Intent(DOCK_SERVICE_ACTION).setPackage(packageName).putExtra("action", "enable_dock"))
         }
+        updateEmptyDesktopState()
         sendBroadcast(Intent(LAUNCHER_ACTION).setPackage(packageName).putExtra("action", LAUNCHER_RESUMED))
     }
 
@@ -373,6 +395,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
                 }
             }
         }
+        updateEmptyDesktopState()
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -639,6 +662,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
                 when (intent.getStringExtra("action")) {
                     DOCK_SERVICE_CONNECTED -> {
                         serviceBtn.visibility = View.GONE
+                        updateEmptyDesktopState()
                         sendBroadcast(Intent(DOCK_SERVICE_ACTION).setPackage(packageName).putExtra("action", "enable_dock"))
                     }
                     DESKTOP_APP_PINNED -> loadDesktopApps()
