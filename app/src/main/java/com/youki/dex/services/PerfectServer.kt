@@ -29,6 +29,9 @@ import android.graphics.Outline
 import android.graphics.PorterDuff
 import android.hardware.usb.UsbManager
 import android.media.AudioManager
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -246,6 +249,20 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private lateinit var wifiBtn: ImageView
     private lateinit var batteryBtn: TextView
     private lateinit var volumeBtn: ImageView
+    private lateinit var mediaControlsGroup: LinearLayout
+    private lateinit var mediaTitleTv: TextView
+    private lateinit var mediaPrevBtn: ImageView
+    private lateinit var mediaPlayPauseBtn: ImageView
+    private lateinit var mediaNextBtn: ImageView
+    private var mediaSessionManager: MediaSessionManager? = null
+    private var activeMediaController: MediaController? = null
+    private val mediaControllerCallbacks =
+        LinkedHashMap<MediaController, MediaController.Callback>()
+    private var mediaSessionListenerRegistered = false
+    private val mediaSessionsChangedListener =
+        MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+            updateMediaSessions(controllers ?: emptyList())
+        }
     private lateinit var pinBtn: ImageView
     private lateinit var wallpaperBtn: ImageView
     private lateinit var userBtn: ImageView
@@ -534,7 +551,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             withContext(Dispatchers.Main) {
                 launchedAppFallback.remove(pkg)
                 launchedAppFallback[pkg] = fallback
-                val limit = maxOf(1, if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape)
+                val limit = maxOf(2, if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape)
                 while (launchedAppFallback.size > limit) {
                     launchedAppFallback.remove(launchedAppFallback.keys.first())
                 }
@@ -610,6 +627,12 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         batteryBtn = dock.findViewById(R.id.battery_btn)
         dateTv = dock.findViewById(R.id.date_btn)
         resourceMonitorTv = dock.findViewById(R.id.resource_monitor_tv)
+        mediaControlsGroup = dock.findViewById(R.id.media_controls_group)
+        mediaTitleTv = dock.findViewById(R.id.media_title_tv)
+        mediaPrevBtn = dock.findViewById(R.id.media_prev_btn)
+        mediaPlayPauseBtn = dock.findViewById(R.id.media_play_pause_btn)
+        mediaNextBtn = dock.findViewById(R.id.media_next_btn)
+        setupMediaControls()
 
         // Show/hide resource monitor based on preference
         if (sharedPreferences.getBoolean("show_resource_monitor", false)) {
@@ -1570,6 +1593,13 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     if (::tasksGv.isInitialized) (tasksGv.adapter as? DockAppAdapter)?.notifyDataSetChanged()
                 }
             } else if (pkg.isNotEmpty() && !pkg.contains("com.android.systemui")) {
+                // A visible floating window may exist even when HyperOS withholds its task ID.
+                // Preserve its launchable app in the taskbar instead of dropping it from the dock list.
+                val alreadyRepresented = launchedAppFallback.containsKey(pkg) ||
+                    (::tasks.isInitialized && tasks.any { it.packageName == pkg })
+                if (!alreadyRepresented && packageManager.getLaunchIntentForPackage(pkg) != null) {
+                    rememberLaunchedApp(pkg, null)
+                }
                 if (AppUtils.currentApp != pkg) {
                     AppUtils.currentApp = pkg
                     // أعد رسم الـ dock ليظهر الخط العريض تحت التطبيق النشط الجديد
@@ -3504,6 +3534,105 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
 
+    private fun mediaNotificationListenerComponent(): ComponentName =
+        ComponentName(this, NotificationService::class.java)
+
+    /** Media controls are available only for an actively playing session. */
+    private fun setupMediaControls() {
+        mediaPrevBtn.setOnClickListener {
+            try { activeMediaController?.transportControls?.skipToPrevious() } catch (_: Exception) {}
+        }
+        mediaPlayPauseBtn.setOnClickListener {
+            try { activeMediaController?.transportControls?.pause() } catch (_: Exception) {}
+        }
+        mediaNextBtn.setOnClickListener {
+            try { activeMediaController?.transportControls?.skipToNext() } catch (_: Exception) {}
+        }
+        mediaControlsGroup.visibility = View.GONE
+        mediaSessionManager = getSystemService(MEDIA_SESSION_SERVICE) as? MediaSessionManager
+        val manager = mediaSessionManager ?: return
+        try {
+            manager.addOnActiveSessionsChangedListener(
+                mediaSessionsChangedListener,
+                mediaNotificationListenerComponent(),
+                Handler(Looper.getMainLooper())
+            )
+            mediaSessionListenerRegistered = true
+            refreshMediaSessions()
+        } catch (e: SecurityException) {
+            mediaControlsGroup.visibility = View.GONE
+            android.util.Log.d("DockService", "Media controls unavailable: notification access is not granted", e)
+        } catch (e: Exception) {
+            mediaControlsGroup.visibility = View.GONE
+            android.util.Log.w("DockService", "Could not register media-session listener", e)
+        }
+    }
+
+    private fun refreshMediaSessions() {
+        val manager = mediaSessionManager ?: return
+        try {
+            updateMediaSessions(manager.getActiveSessions(mediaNotificationListenerComponent()))
+        } catch (e: SecurityException) {
+            if (::mediaControlsGroup.isInitialized) mediaControlsGroup.visibility = View.GONE
+        } catch (e: Exception) {
+            if (::mediaControlsGroup.isInitialized) mediaControlsGroup.visibility = View.GONE
+        }
+    }
+
+    private fun updateMediaSessions(controllers: List<MediaController>) {
+        if (!::mediaControlsGroup.isInitialized) return
+
+        val active = controllers.toSet()
+        mediaControllerCallbacks.keys.filter { it !in active }.toList().forEach { controller ->
+            try { mediaControllerCallbacks[controller]?.let(controller::unregisterCallback) } catch (_: Exception) {}
+            mediaControllerCallbacks.remove(controller)
+        }
+        controllers.forEach { controller ->
+            if (!mediaControllerCallbacks.containsKey(controller)) {
+                val callback = object : MediaController.Callback() {
+                    override fun onPlaybackStateChanged(state: PlaybackState?) = refreshMediaSessions()
+                    override fun onMetadataChanged(metadata: android.media.MediaMetadata?) = refreshMediaSessions()
+                    override fun onSessionDestroyed() = refreshMediaSessions()
+                }
+                mediaControllerCallbacks[controller] = callback
+                try { controller.registerCallback(callback, Handler(Looper.getMainLooper())) } catch (_: Exception) {}
+            }
+        }
+
+        val playing = controllers.firstOrNull {
+            it.playbackState?.state == PlaybackState.STATE_PLAYING
+        }
+        activeMediaController = playing
+        if (playing == null) {
+            mediaControlsGroup.visibility = View.GONE
+            mediaTitleTv.text = ""
+            return
+        }
+
+        val title = playing.metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE)
+            ?.takeIf { it.isNotBlank() }
+            ?: playing.packageName
+        mediaTitleTv.text = title
+        mediaPlayPauseBtn.setImageResource(R.drawable.ic_pause)
+        mediaPlayPauseBtn.contentDescription = getString(R.string.media_pause)
+        mediaControlsGroup.visibility = View.VISIBLE
+    }
+
+    private fun stopMediaControls() {
+        if (mediaSessionListenerRegistered) {
+            try {
+                mediaSessionManager?.removeOnActiveSessionsChangedListener(mediaSessionsChangedListener)
+            } catch (_: Exception) {}
+            mediaSessionListenerRegistered = false
+        }
+        mediaControllerCallbacks.forEach { (controller, callback) ->
+            try { controller.unregisterCallback(callback) } catch (_: Exception) {}
+        }
+        mediaControllerCallbacks.clear()
+        activeMediaController = null
+        mediaSessionManager = null
+    }
+
     private fun updateRunningTasks(recreateAdapter: Boolean = false) {
         val now = System.currentTimeMillis()
         if (now - lastUpdate < 500 && !recreateAdapter)
@@ -3521,8 +3650,12 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 apps.add(DockApp(pinnedApp.name, pinnedApp.packageName, pinnedApp.icon))
             }
 
-            val nApps =
+            // Keep at least two task slots so two simultaneous freeform windows
+            // can both remain represented in the taskbar even with a legacy max=1 preference.
+            val nApps = maxOf(
+                2,
                 if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape
+            )
 
             // heavy IPC happens here, off the main thread
             val fetchedTasks: ArrayList<AppTask> = withContext(Dispatchers.IO) {
@@ -4701,6 +4834,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         initHandler.removeCallbacksAndMessages(null)
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = null
+        stopMediaControls()
         serviceScope.cancel() // Cancel all running coroutines to prevent leaks
         castManager?.destroy()
         DeviceUtils.hideStatusBar(this, false)
