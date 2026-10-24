@@ -732,9 +732,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             }
         }
         wallpaperBtn.setOnLongClickListener {
-            // Long press → open wallpaper button settings directly
-            launchApp("standard", null, Intent(this, com.youki.dex.activities.MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK))
+            // Long press opens DevDex settings as a normal, full-screen Activity.
+            openSettingsScreen()
             true
         }
 
@@ -2054,6 +2053,34 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
 
+    /**
+     * Opens DevDex's own settings Activity in the normal system-selected window.
+     * Routing internal settings through launchApp("standard") applies freeform
+     * bounds intended for user apps; on devices with limited freeform support this
+     * can leave Settings invisible or as an empty transparent task.
+     */
+    private fun openSettingsScreen(openFragment: String? = null) {
+        val settingsIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+            if (openFragment != null) putExtra("open_fragment", openFragment)
+        }
+
+        try {
+            startActivity(settingsIntent, android.app.ActivityOptions.makeBasic().toBundle())
+        } catch (primaryError: Exception) {
+            android.util.Log.e("DockService", "Could not open DevDex settings with basic options", primaryError)
+            try {
+                startActivity(settingsIntent)
+            } catch (fallbackError: Exception) {
+                android.util.Log.e("DockService", "Could not open DevDex settings", fallbackError)
+            }
+        }
+    }
+
     private fun launchApp(
         mode: String?,
         packageName: String?,
@@ -2454,12 +2481,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 bubbleColor = getBubbleColor(), // ← FIX: نمرر لون الفقاعة عشان الـ popup يتطابق
                 onAddUserRequested = {
                     toggleAppMenu()
-                    launchApp("standard", null,
-                        Intent(this, MainActivity::class.java)
-                            .putExtra("open_fragment", "multi_user")
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                                or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
-                                or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
+                    openSettingsScreen("multi_user")
                 }
             )
         }
@@ -4008,11 +4030,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         // ── Power option click listeners ──────────────────────────────────────
         powerMenu!!.findViewById<android.view.View>(R.id.item_settings)?.setOnClickListener {
             hidePowerMenu()
-            launchApp("standard", null,
-                android.content.Intent(this, com.youki.dex.activities.MainActivity::class.java)
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                        or android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK
-                        or android.content.Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
+            openSettingsScreen()
         }
         powerMenu!!.findViewById<android.view.View>(R.id.item_lock)?.setOnClickListener {
             hidePowerMenu(); lockScreen()
