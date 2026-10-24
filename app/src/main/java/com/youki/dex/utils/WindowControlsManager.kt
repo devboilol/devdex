@@ -85,13 +85,20 @@ class WindowControlsManager(
 
     private fun dp(v: Int) = (v * ctx.resources.displayMetrics.density + 0.5f).toInt()
 
-    /** Call on every windows-changed / config-changed event; throttled internally. */
-    fun scheduleUpdate() {
-        if (destroyed || pending) return
+    /** Call on every windows-changed / config-changed event; coalesced to one update per frame. */
+    fun scheduleUpdate(immediate: Boolean = false) {
+        if (destroyed) return
+        if (pending) {
+            if (!immediate) return
+            handler.removeCallbacks(updateRunnable)
+            pending = false
+        }
         pending = true
-        // Coalesce window-change events to roughly two frames on a 60 Hz
-        // display. 120 ms made the controls visibly trail moving windows.
-        handler.postDelayed(updateRunnable, 40)
+        // A separate overlay cannot become a literal child of another app's
+        // window. Refreshing on the next frame minimizes visible trailing while
+        // the user drags/resizes freeform windows.
+        if (immediate) handler.post(updateRunnable)
+        else handler.postDelayed(updateRunnable, 16)
     }
 
     fun destroy() {
