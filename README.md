@@ -58,6 +58,7 @@ Open **Settings → Advanced → Backup/Restore Preferences** to export or impor
 - DevDex includes a rebuilt basic local file manager under **Settings → Default apps → Open DevDex file manager**. It supports folder navigation, opening/sharing files, rename/delete, multi-select, copy/move, ZIP creation, sorting, and search within the current folder. Android 11 and newer require the user to grant All files access. On ROMs that block this permission, use the system picker or another file manager. The MVP focuses on primary shared storage, not SD-card root browsing.
 - Window controls and fullscreen detection depend partly on Android and device-manufacturer behavior. Please test on your own device.
 - Always-on-top pinning for arbitrary apps is not implemented through the ordinary public Android APIs.
+- Current hands-on validation is limited to the Redmi Pad SE 8.7. Other tablet models, Android Go builds, and OEM-specific compatibility switches remain unverified until tested on those devices.
 
 ### Credits and acknowledgements
 
