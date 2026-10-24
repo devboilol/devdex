@@ -10,6 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- The desktop stays uncluttered until the user pins apps. -->
     <!-- The start-service button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/service_btn"

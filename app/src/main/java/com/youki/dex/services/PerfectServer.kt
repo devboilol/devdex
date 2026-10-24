@@ -29,6 +29,9 @@ import android.graphics.Outline
 import android.graphics.PorterDuff
 import android.hardware.usb.UsbManager
 import android.media.AudioManager
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -246,6 +249,20 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private lateinit var wifiBtn: ImageView
     private lateinit var batteryBtn: TextView
     private lateinit var volumeBtn: ImageView
+    private lateinit var mediaControlsGroup: LinearLayout
+    private lateinit var mediaTitleTv: TextView
+    private lateinit var mediaPrevBtn: ImageView
+    private lateinit var mediaPlayPauseBtn: ImageView
+    private lateinit var mediaNextBtn: ImageView
+    private var mediaSessionManager: MediaSessionManager? = null
+    private var activeMediaController: MediaController? = null
+    private val mediaControllerCallbacks =
+        LinkedHashMap<MediaController, MediaController.Callback>()
+    private var mediaSessionListenerRegistered = false
+    private val mediaSessionsChangedListener =
+        MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+            updateMediaSessions(controllers ?: emptyList())
+        }
     private lateinit var pinBtn: ImageView
     private lateinit var wallpaperBtn: ImageView
     private lateinit var userBtn: ImageView
@@ -294,6 +311,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private var lastGoodDockWidth: Int = 0
     private lateinit var searchEt: EditText
     private lateinit var tasksGv: RecyclerView
+    // Fallback for ROMs that hide UsageStats and third-party task IDs. Recently
+    // launched apps still get a dock icon even when Android won't expose a Task.
+    private val launchedAppFallback = LinkedHashMap<String, AppTask>()
     private lateinit var favoritesGv: RecyclerView
     private lateinit var appsGv: RecyclerView
     private lateinit var wifiManager: WifiManager
@@ -344,6 +364,33 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private var prevCpuTotal = 0L
     private var prevCpuIdle = 0L
     private var lastCpuValue = 0
+    /**
+     * One-time migration from the previous desktop-first profile, which wrote all
+     * three navigation buttons as hidden on fresh installs. Do not reset choices
+     * if the user has already selected a navigation style or has a mixed button setup.
+     */
+    private fun migrateLegacyNavigationDefaults() {
+        if (sharedPreferences.getBoolean("devdex_navigation_defaults_v2_applied", false)) return
+
+        val oldFirstRunProfile = sharedPreferences.getBoolean("devdex_first_run_defaults_applied", false)
+        val hasChosenStyle = sharedPreferences.contains("nav_button_style")
+        val allNavigationButtonsHidden =
+            !sharedPreferences.getBoolean("enable_nav_back", true) &&
+            !sharedPreferences.getBoolean("enable_nav_home", true) &&
+            !sharedPreferences.getBoolean("enable_nav_recents", true)
+
+        sharedPreferences.edit {
+            if (oldFirstRunProfile && !hasChosenStyle && allNavigationButtonsHidden) {
+                putBoolean("enable_nav_back", true)
+                putBoolean("enable_nav_home", true)
+                putBoolean("enable_nav_recents", true)
+                putBoolean("enable_nav_assist", true)
+                putString("nav_button_style", "pixel")
+            }
+            putBoolean("devdex_navigation_defaults_v2_applied", true)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         PerfectServer.dock = this  // ✅ سجّل في المنسق
@@ -351,6 +398,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         activityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
+        migrateLegacyNavigationDefaults()
         secondary = sharedPreferences.getBoolean("prefer_last_display", false)
         context = DeviceUtils.getDisplayContext(this, secondary)
         windowManager = context.getSystemService(WINDOW_SERVICE) as WindowManager
@@ -482,10 +530,34 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         return try { findRunningTaskId(packageName) } catch (e: Exception) { -1 }
     }
 
-    private fun forceStopPackage(pkg: String) {
-        // package names are [A-Za-z0-9._]; refuse anything else before it reaches a shell
-        if (!pkg.matches(Regex("[A-Za-z0-9._]+"))) return
-        tryLaunchViaShell("am force-stop $pkg")
+    private fun forceStopPackage(pkg: String): Boolean {
+        // Package names are [A-Za-z0-9._]; reject anything else before it reaches a shell.
+        if (!pkg.matches(Regex("[A-Za-z0-9._]+"))) return false
+        return tryLaunchViaShell("am force-stop $pkg")
+    }
+
+    /** Remember a successful launch for dock visibility when task APIs are restricted. */
+    private fun rememberLaunchedApp(pkg: String?, app: App?) {
+        if (pkg.isNullOrBlank() || pkg == packageName) return
+        serviceScope.launch(Dispatchers.IO) {
+            val fallback = try {
+                val label = app?.name ?: AppUtils.getPackageLabel(applicationContext, pkg).ifBlank { pkg }
+                val icon = app?.icon ?: packageManager.getApplicationIcon(pkg)
+                AppTask(-1, label, pkg, icon)
+            } catch (e: Exception) {
+                android.util.Log.d("DevDex", "Could not cache a dock icon for $pkg", e)
+                return@launch
+            }
+            withContext(Dispatchers.Main) {
+                launchedAppFallback.remove(pkg)
+                launchedAppFallback[pkg] = fallback
+                val limit = maxOf(2, if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape)
+                while (launchedAppFallback.size > limit) {
+                    launchedAppFallback.remove(launchedAppFallback.keys.first())
+                }
+                if (::tasksGv.isInitialized) updateRunningTasks(true)
+            }
+        }
     }
 
     private fun currentDisplayId(): Int =
@@ -502,7 +574,6 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             displayId = { currentDisplayId() },
             dockHeight = { dockHeight },
             taskIdFor = { pkg, idx -> taskIdForWindow(pkg, idx) },
-            forceStop = { pkg -> forceStopPackage(pkg) },
             bringToFront = { id -> try { activityManager.moveTaskToFront(id, 0) } catch (e: Exception) {} },
             io = { block -> serviceScope.launch(Dispatchers.IO) { try { block() } catch (e: Exception) {} } }
         )
@@ -556,6 +627,12 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         batteryBtn = dock.findViewById(R.id.battery_btn)
         dateTv = dock.findViewById(R.id.date_btn)
         resourceMonitorTv = dock.findViewById(R.id.resource_monitor_tv)
+        mediaControlsGroup = dock.findViewById(R.id.media_controls_group)
+        mediaTitleTv = dock.findViewById(R.id.media_title_tv)
+        mediaPrevBtn = dock.findViewById(R.id.media_prev_btn)
+        mediaPlayPauseBtn = dock.findViewById(R.id.media_play_pause_btn)
+        mediaNextBtn = dock.findViewById(R.id.media_next_btn)
+        setupMediaControls()
 
         // Show/hide resource monitor based on preference
         if (sharedPreferences.getBoolean("show_resource_monitor", false)) {
@@ -706,32 +783,18 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             }
         }
         wallpaperBtn.setOnLongClickListener {
-            // Long press → open wallpaper button settings directly
-            launchApp("standard", null, Intent(this, com.youki.dex.activities.MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK))
+            // Long press opens DevDex settings as a normal, full-screen Activity.
+            openSettingsScreen()
             true
         }
 
-        // ── User button → opens combined Power + Users menu ──────────────────
-        userBtn.setOnClickListener {
-            animateBtn(it) {
-                // FIX: dead setting — "enable_power_menu" ("Built in power
-                // menu: use a custom power menu instead of the system one",
-                // preferences_advanced.xml, defaults to false) was defined
-                // and shown in Settings, but showPowerMenu() below was
-                // called unconditionally — the custom menu always appeared
-                // regardless of the switch, and there was no way to ever
-                // get the actual system power dialog this setting's own
-                // description promises as the alternative. GLOBAL_ACTION_
-                // POWER_DIALOG is the standard AccessibilityService action
-                // for that — DockService already is one (see its class
-                // declaration).
-                if (sharedPreferences.getBoolean("enable_power_menu", false)) {
-                    showPowerMenu()
-                } else {
-                    performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
-                }
-            }
+        // The profile/avatar slot is the direct, predictable entry to DevDex settings.
+        userBtn.setOnClickListener { animateBtn(it) { openSettingsScreen() } }
+        // Preserve power actions on long-press without stealing the normal Settings tap.
+        userBtn.setOnLongClickListener {
+            if (sharedPreferences.getBoolean("enable_power_menu", false)) showPowerMenu()
+            else performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+            true
         }
 
         // ── Load user icon for dock button ────────────────────────────────────
@@ -1074,6 +1137,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                             .setPackage(packageName)
                             .putExtra("action", ACTION_SHOW_NOTIFICATION_BAR))
                     }
+                    "lock_screen" -> lockScreen()
                     "disable_self" -> {
                         try { if (appMenuVisible) hideAppMenu() } catch (e: Exception) {}
                         try { if (qsPanelVisible) toggleQsPanel() } catch (e: Exception) {}
@@ -1404,7 +1468,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (tasks.size == 1) {
             val taskId = tasks[0].id
             if (taskId == -1) {
-                launchApp(null, app.packageName)
+                if (AppUtils.currentApp == app.packageName) performGlobalAction(GLOBAL_ACTION_HOME)
+                else launchApp(null, app.packageName)
             } else if (windowControls?.restoreIfMinimized(taskId) == true) {
                 // window had been minimized with its title-bar button → restored + raised
             } else {
@@ -1444,9 +1509,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             val tasksLv = view.findViewById<ListView>(R.id.tasks_lv)
             tasksLv.adapter = AppTaskAdapter(context, tasks)
             tasksLv.setOnItemClickListener { adapterView, _, position, _ ->
-                activityManager.moveTaskToFront(
-                    (adapterView.getItemAtPosition(position) as AppTask).id, 0
-                )
+                val selectedTaskId = (adapterView.getItemAtPosition(position) as AppTask).id
+                if (windowControls?.restoreIfMinimized(selectedTaskId) != true) {
+                    activityManager.moveTaskToFront(selectedTaskId, 0)
+                }
                 removePopup(view)
             }
             addPopup(view, layoutParams)
@@ -1490,7 +1556,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (!uiReady) return
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            windowControls?.scheduleUpdate()   // throttled inside; keeps min/max/close buttons glued to the windows
+            // Bounds changes must be applied in the same main-loop turn. The
+            // accessibility service is configured with a short event timeout,
+            // so delaying again here makes controls visibly trail dragged windows.
+            windowControls?.scheduleUpdate(immediate = true)
         }
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             val now = System.currentTimeMillis()
@@ -1517,11 +1586,20 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             // TYPE_WINDOW_STATE_CHANGED يطلق لما تنقر على نافذة وتعطيها الـ focus
             // هذا يسمح لنا نعرف أي تطبيق "نشط" الآن حتى في الـ freeform
             val pkg = event.packageName?.toString() ?: return
-            if (pkg.isNotEmpty()
-                && pkg != packageName
-                && pkg != AppUtils.getCurrentLauncher(packageManager)
-                && !pkg.contains("com.android.systemui")
-            ) {
+            val launcherPackage = AppUtils.getCurrentLauncher(packageManager)
+            if (pkg == packageName || pkg == launcherPackage) {
+                if (AppUtils.currentApp.isNotEmpty()) {
+                    AppUtils.currentApp = ""
+                    if (::tasksGv.isInitialized) (tasksGv.adapter as? DockAppAdapter)?.notifyDataSetChanged()
+                }
+            } else if (pkg.isNotEmpty() && !pkg.contains("com.android.systemui")) {
+                // A visible floating window may exist even when HyperOS withholds its task ID.
+                // Preserve its launchable app in the taskbar instead of dropping it from the dock list.
+                val alreadyRepresented = launchedAppFallback.containsKey(pkg) ||
+                    (::tasks.isInitialized && tasks.any { it.packageName == pkg })
+                if (!alreadyRepresented && packageManager.getLaunchIntentForPackage(pkg) != null) {
+                    rememberLaunchedApp(pkg, null)
+                }
                 if (AppUtils.currentApp != pkg) {
                     AppUtils.currentApp = pkg
                     // أعد رسم الـ dock ليظهر الخط العريض تحت التطبيق النشط الجديد
@@ -1978,34 +2056,77 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
      * for this same lookup, added alongside this function).
      */
     private fun findRunningTaskId(packageName: String): Int {
-        val runningTasks = activityManager.getRunningTasks(1)
-        return runningTasks.firstOrNull()
-            ?.takeIf { it.topActivity?.packageName == packageName }
-            ?.id ?: -1
+        // Freeform windows do not always occupy getRunningTasks(1)'s first
+        // slot. Search the visible task list instead of assuming the target
+        // app is the single topmost task; this also keeps Close available
+        // for background and overlapping windows.
+        return try {
+            val runningTasks = activityManager.getRunningTasks(50)
+            runningTasks.firstOrNull { task ->
+                task.topActivity?.packageName == packageName
+            }?.id ?: runningTasks.firstOrNull { task ->
+                task.baseActivity?.packageName == packageName ||
+                    task.origActivity?.packageName == packageName
+            }?.id ?: -1
+        } catch (e: Exception) {
+            android.util.Log.w("DockService", "Could not resolve task for $packageName", e)
+            -1
+        }
     }
 
     private fun tryLaunchViaShell(shellCmd: String): Boolean {
+        fun commandFailed(output: String?): Boolean =
+            output?.let { Regex("(?i)(error:|permission denied|not allowed|unknown command|not found|failed)").containsMatchIn(it) } == true
+
         try {
             val shell = com.youki.dex.server.ShellManager
             if (shell.isAvailable) {
-                shell.execSync(shellCmd)
-                return true
+                val output = shell.execSync(shellCmd)
+                if (!commandFailed(output)) return true
             }
         } catch (e: Exception) {}
 
         try {
             val shizuku = ShizukoManager.getInstance(this)
             if (shizuku.hasPermission) {
-                shizuku.runShellSync(shellCmd)
-                return true
+                val output = shizuku.runShellSync(shellCmd)
+                if (!commandFailed(output)) return true
             }
         } catch (e: Exception) {}
 
         return try {
-            DeviceUtils.runAsRoot(shellCmd)
-            true
+            val output = DeviceUtils.runAsRoot(shellCmd)
+            !output.equals("error", ignoreCase = true) && !commandFailed(output)
         } catch (e: Exception) {
             false
+        }
+    }
+
+    /**
+     * Opens DevDex's own settings Activity in the normal system-selected window.
+     * Routing internal settings through launchApp("standard") applies freeform
+     * bounds intended for user apps; on devices with limited freeform support this
+     * can leave Settings invisible or as an empty transparent task.
+     */
+    private fun openSettingsScreen(openFragment: String? = null) {
+        val settingsIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+            if (openFragment != null) putExtra("open_fragment", openFragment)
+        }
+
+        try {
+            startActivity(settingsIntent, android.app.ActivityOptions.makeBasic().toBundle())
+        } catch (primaryError: Exception) {
+            android.util.Log.e("DockService", "Could not open DevDex settings with basic options", primaryError)
+            try {
+                startActivity(settingsIntent)
+            } catch (fallbackError: Exception) {
+                android.util.Log.e("DockService", "Could not open DevDex settings", fallbackError)
+            }
         }
     }
 
@@ -2029,7 +2150,39 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             )
                 db.saveLaunchMode(packageName, launchMode)
 
-        val options = AppUtils.makeActivityOptions(context, launchMode, dockHeight, displayId)
+        // The default HyperOS settings on this tablet do not expose Parallel Windows.
+        // Do not pretend that requesting split-screen succeeded: if Android has no
+        // freeform feature and the user has not opted into the reversible experimental
+        // compatibility settings, a freeform request is ignored and the next app
+        // simply replaces the previous one. Explain how to enable the generic window
+        // backend, then launch normally until that capability has been activated.
+        if (
+            launchMode != "fullscreen" &&
+            displayId == Display.DEFAULT_DISPLAY &&
+            !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT) &&
+            !AppUtils.isExperimentalFreeformEnabled(context)
+        ) {
+            val noticeKey = "_devdex_freeform_compatibility_notice_shown"
+            if (!sharedPreferences.getBoolean(noticeKey, false)) {
+                Toast.makeText(
+                    context,
+                    R.string.experimental_freeform_required,
+                    Toast.LENGTH_LONG
+                ).show()
+                sharedPreferences.edit().putBoolean(noticeKey, true).apply()
+            }
+            launchMode = "fullscreen"
+        }
+
+        // OEMs differ in which windowing/display options they permit. If
+        // building the enhanced options itself fails, keep launching with
+        // platform defaults rather than losing the app launch entirely.
+        val options = try {
+            AppUtils.makeActivityOptions(context, launchMode, dockHeight, displayId)
+        } catch (e: Exception) {
+            android.util.Log.w("DockService", "Could not create launch options; using platform defaults", e)
+            android.app.ActivityOptions.makeBasic()
+        }
 
         //Used only for work apps
         if (app != null && app.userHandle != Process.myUserHandle())
@@ -2047,6 +2200,31 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
             if (launchIntent == null)
                 return
+
+            // A first launch should own a distinct task. If Android can already see
+            // this package's task, reuse it instead of spawning duplicate windows.
+            if (launchMode != "fullscreen" && packageName != null && !newInstance) {
+                val hasVisibleTask = try {
+                    activityManager.getRunningTasks(50).any { task ->
+                        task.topActivity?.packageName == packageName ||
+                            task.baseActivity?.packageName == packageName ||
+                            task.origActivity?.packageName == packageName
+                    }
+                } catch (e: Exception) {
+                    false
+                }
+                val hasTrackedProcess = AppUtils.trulyRunningPackages?.contains(packageName) == true
+                val canInspectPrivilegedTasks =
+                    com.youki.dex.server.ShellManager.isAvailable ||
+                        ShizukoManager.getInstance(context).hasPermission
+                val hasPrivilegedTask = !hasVisibleTask && !hasTrackedProcess &&
+                    canInspectPrivilegedTasks &&
+                    AppUtils.findTaskIdViaPrivilegedShell(context, packageName) >= 0
+
+                if (!hasVisibleTask && !hasTrackedProcess && !hasPrivilegedTask) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                }
+            }
 
             if (newInstance)
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -2071,6 +2249,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                     context, packageName, launchMode, dockHeight, displayId
                 )
                 if (shellCmd.isNotEmpty() && tryLaunchViaShell(shellCmd)) {
+                    rememberLaunchedApp(packageName, app)
                     return
                 }
                 // No shell access, or the command failed — fall through to
@@ -2081,18 +2260,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 // new silent no-op.
             }
 
-            // See AppUtils.isAppProcessRunning's own doc comment for the
-            // full explanation. Short version: ActivityOptions'
-            // setLaunchBounds/setLaunchWindowingMode above are unreliable
-            // specifically on a cold start (no existing process) — the
-            // system briefly creates the new Task at a default size before
-            // the requested freeform bounds take effect, so "Maximized"
-            // (or any non-standard mode) can silently open at roughly
-            // half-screen the very first time an app is launched. This
-            // check must run BEFORE startActivity, since startActivity is
-            // what creates the process this function checks for.
-            val wasAlreadyRunning = packageName != null &&
-                AppUtils.isAppProcessRunning(this@DockService, packageName)
+            // Verify and re-apply the requested window mode after launch, including
+            // when Android brings an existing task forward but ignores its launch bounds.
 
             // FIX: startActivity() had no error handling at all — on a slow
             // device (user report: BLU M10L Pro, 3GB RAM, Unisoc T310) a
@@ -2108,35 +2277,59 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             // icon overlaid (no first frame was ever drawn into it, so the
             // system falls back to its default empty-task representation).
             try {
-                context.startActivity(launchIntent, options.toBundle())
-            } catch (e: Exception) {
-                // ActivityNotFoundException, SecurityException, or any
-                // other launch-time failure — surface it instead of
-                // silently proceeding as if nothing went wrong, and skip
-                // the resize-retry below since there's no Task to resize.
-                android.util.Log.e("DockService", "launchApp failed for $packageName: ${e.message}")
-                Toast.makeText(
-                    this@DockService,
-                    getString(R.string.something_wrong),
-                    Toast.LENGTH_SHORT
-                ).show()
-                return
+                // Start from the requested display/windowing mode first.
+                // A few OEM builds reject ActivityOptions even when the
+                // target app itself is perfectly launchable.
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (launchMode == "fullscreen" &&
+                    displayId == Display.DEFAULT_DISPLAY &&
+                    !sharedPreferences.getBoolean("prefer_last_display", false)
+                ) {
+                    // Let Android/HyperOS launch this Activity exactly as its own
+                    // launcher would. No hidden windowing mode or display override.
+                    context.startActivity(launchIntent)
+                } else {
+                    context.startActivity(launchIntent, options.toBundle())
+                }
+            } catch (primaryError: Exception) {
+                android.util.Log.w(
+                    "DockService",
+                    "Launch with requested window options failed for $packageName; retrying with defaults",
+                    primaryError
+                )
+                try {
+                    // Safe fallback: allow Android to open the app normally
+                    // instead of leaving the user with a generic error. Mark
+                    // the effective mode fullscreen so no delayed freeform
+                    // resize is attempted against a launch that used defaults.
+                    val fallbackIntent = Intent(launchIntent)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // The fallback should be as close as possible to a normal launcher
+                    // tap; avoid passing an empty options bundle to OEM ActivityTaskManager.
+                    context.startActivity(fallbackIntent)
+                    launchMode = "fullscreen"
+                    android.util.Log.i("DockService", "Fallback launch succeeded for $packageName")
+                } catch (fallbackError: Exception) {
+                    android.util.Log.e(
+                        "DockService",
+                        "Launch failed with requested and default options for $packageName",
+                        fallbackError
+                    )
+                    Toast.makeText(
+                        this@DockService,
+                        getString(R.string.something_wrong),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return
+                }
             }
 
-            if (!wasAlreadyRunning && packageName != null && launchMode != "fullscreen") {
-                // 400ms: long enough for the system to finish creating the
-                // Task on a genuine cold start (150ms was already the gap
-                // AppUtils.resizeTask uses between its own two shell
-                // commands, set-windowing-mode then resize — see that
-                // function — so 400ms here is a deliberately larger margin
-                // for the slower "new process + new Task" case specifically,
-                // not just "switch windowing mode on an existing Task").
-                // Not a fixed fix for every device/timing — see this
-                // change's own commit message for that caveat — but doing
-                // nothing left the bug fully unaddressed.
+            if (packageName != null && launchMode != "fullscreen") {
                 checkTaskCreatedOrRetry(packageName, launchMode, attempt = 1)
             }
         }
+
+        rememberLaunchedApp(packageName, app)
 
         if (appMenuVisible)
             hideAppMenu()
@@ -2179,30 +2372,37 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private fun checkTaskCreatedOrRetry(packageName: String, launchMode: String, attempt: Int) {
         val delayMs = if (attempt == 1) 400L else 800L
         dockHandler.postDelayed({
-            val runningTasks = activityManager.getRunningTasks(1)
-            val taskId = runningTasks.firstOrNull()
-                ?.takeIf { it.topActivity?.packageName == packageName }
-                ?.id ?: -1
+            // A freeform task can remain visible without being Android's
+            // single top task. Look through the accessible task list before
+            // deciding whether launch succeeded.
+            val runningTasks = try {
+                activityManager.getRunningTasks(50)
+            } catch (e: Exception) {
+                emptyList()
+            }
+            val taskId = runningTasks.firstOrNull { it.topActivity?.packageName == packageName }?.id
+                ?: runningTasks.firstOrNull {
+                    it.baseActivity?.packageName == packageName ||
+                        it.origActivity?.packageName == packageName
+                }?.id
+                // Android/OEM task visibility can be restricted. Try the privileged
+                // route used by WindowControlsManager before giving up on resizing.
+                ?: AppUtils.findTaskIdViaPrivilegedShell(this@DockService, packageName)
             when {
                 taskId != -1 -> AppUtils.resizeTask(context, launchMode, taskId, dockHeight)
                 attempt == 1 -> checkTaskCreatedOrRetry(packageName, launchMode, attempt = 2)
                 else -> {
-                    // Both checks failed — this is the "app completely
-                    // fails to open" half of the user report, distinct from
-                    // launchApp's own startActivity try/catch (that one
-                    // catches startActivity() itself throwing; this catches
-                    // it returning normally but the system never actually
-                    // finishing Task creation, e.g. the new process getting
-                    // OOM-killed a moment later on a 3GB-RAM device).
-                    // Nothing to resize, and silently doing nothing here is
-                    // exactly the "app just didn't open, with no
-                    // explanation" behavior being reported — so tell the
-                    // user plainly instead.
-                    Toast.makeText(
-                        this@DockService,
-                        getString(R.string.something_wrong),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // Task visibility is restricted on recent Android
+                    // releases and OEM builds, especially for floating
+                    // windows. Failure to observe a task is not proof
+                    // that launch failed; a generic toast here was firing
+                    // for apps that had opened successfully. Keep the
+                    // evidence in Logcat, but only surface an error when
+                    // startActivity itself fails above.
+                    android.util.Log.w(
+                        "DockService",
+                        "Could not verify task for $packageName after launch; suppressing possibly false error toast"
+                    )
                 }
             }
         }, delayMs)
@@ -2371,12 +2571,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 bubbleColor = getBubbleColor(), // ← FIX: نمرر لون الفقاعة عشان الـ popup يتطابق
                 onAddUserRequested = {
                     toggleAppMenu()
-                    launchApp("standard", null,
-                        Intent(this, MainActivity::class.java)
-                            .putExtra("open_fragment", "multi_user")
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                                or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
-                                or Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
+                    openSettingsScreen("multi_user")
                 }
             )
         }
@@ -2724,13 +2919,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 } else if (action.text == getString(R.string.close_window) && dockApp != null && dockApp.tasks.isNotEmpty()) {
                     removePopup(view)
                     val taskId = dockApp.tasks[0].id
-                    val closePkg = dockApp.packageName
                     // same ShellManager → Shizuku → root chain as every other close path
                     // (this one used to skip Shizuku entirely and then did nothing)
                     windowControls?.restoreIfMinimized(taskId)
                     serviceScope.launch(Dispatchers.IO) {
-                        if (taskId != -1) AppUtils.closeTask(context, taskId) else forceStopPackage(closePkg)
+                        val closed = taskId != -1 && AppUtils.closeTask(context, taskId)
                         withContext(Dispatchers.Main) {
+                            if (!closed) {
+                                Toast.makeText(context, R.string.window_control_privilege_required, Toast.LENGTH_SHORT).show()
+                            }
                             dockHandler.postDelayed({ updateRunningTasks(true) }, 400)
                         }
                     }
@@ -2824,6 +3021,30 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 updateRunningTasks()
             removePopup(view)
         }
+
+        // "Close app" ends the whole app session, unlike dismissing this
+        // menu or returning Home (both of which leave the app available).
+        // Only expose it for taskbar/running-app entries; pinned shortcuts
+        // continue to offer Pin/Unpin without an irrelevant close action.
+        val closeAppRow = view.findViewById<LinearLayout>(R.id.pin_entry_close_app)
+        if (dockApp != null) {
+            closeAppRow.visibility = View.VISIBLE
+            closeAppRow.findViewById<ImageView>(R.id.pin_entry_close_app_icon)?.let {
+                ColorUtils.applySecondaryColor(context, sharedPreferences, it)
+            }
+            closeAppRow.setOnClickListener {
+                removePopup(view)
+                val targetPackage = app.packageName
+                serviceScope.launch(Dispatchers.IO) {
+                    val stopped = forceStopPackage(targetPackage)
+                    withContext(Dispatchers.Main) {
+                        if (stopped) launchedAppFallback.remove(targetPackage)
+                        else Toast.makeText(context, R.string.close_app_privilege_required, Toast.LENGTH_SHORT).show()
+                        dockHandler.postDelayed({ updateRunningTasks(true) }, 400)
+                    }
+                }
+            }
+        }
         addPopup(view, layoutParams)
     }
 
@@ -2912,6 +3133,9 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         if (!uiReady) return
         if (preference == null)
             return
+        if (preference == "window_controls_enabled" || preference == "window_controls_opacity") {
+            windowControls?.scheduleUpdate(immediate = true)
+        }
         if (preference.startsWith("theme") || preference == "bubble_color"
             || preference == "bubble_mode" || preference == "bubble_alpha"
             || preference == "round_dock" || preference == "dock_height"
@@ -2958,7 +3182,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             updateDockTrigger()
         else if (preference.startsWith("enable_corner_"))
             updateCorners()
-        else if (preference.startsWith("enable_nav_")) {
+        else if (preference.startsWith("enable_nav_") || preference == "nav_button_style") {
             updateNavigationBar()
         } else if (preference.startsWith("enable_qs_")) {
             updateQuickSettings()
@@ -3341,6 +3565,112 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
 
+    private fun mediaNotificationListenerComponent(): ComponentName =
+        ComponentName(this, NotificationService::class.java)
+
+    /** Media controls are available only for an actively playing session. */
+    private fun setupMediaControls() {
+        mediaPrevBtn.setOnClickListener {
+            try { activeMediaController?.transportControls?.skipToPrevious() } catch (_: Exception) {}
+        }
+        mediaPlayPauseBtn.setOnClickListener {
+            try {
+                val controller = activeMediaController ?: return@setOnClickListener
+                if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
+                    controller.transportControls.pause()
+                } else {
+                    controller.transportControls.play()
+                }
+            } catch (_: Exception) {}
+        }
+        mediaNextBtn.setOnClickListener {
+            try { activeMediaController?.transportControls?.skipToNext() } catch (_: Exception) {}
+        }
+        mediaControlsGroup.visibility = View.GONE
+        mediaSessionManager = getSystemService(MEDIA_SESSION_SERVICE) as? MediaSessionManager
+        val manager = mediaSessionManager ?: return
+        try {
+            manager.addOnActiveSessionsChangedListener(
+                mediaSessionsChangedListener,
+                mediaNotificationListenerComponent(),
+                Handler(Looper.getMainLooper())
+            )
+            mediaSessionListenerRegistered = true
+            refreshMediaSessions()
+        } catch (e: SecurityException) {
+            mediaControlsGroup.visibility = View.GONE
+            android.util.Log.d("DockService", "Media controls unavailable: notification access is not granted", e)
+        } catch (e: Exception) {
+            mediaControlsGroup.visibility = View.GONE
+            android.util.Log.w("DockService", "Could not register media-session listener", e)
+        }
+    }
+
+    private fun refreshMediaSessions() {
+        val manager = mediaSessionManager ?: return
+        try {
+            updateMediaSessions(manager.getActiveSessions(mediaNotificationListenerComponent()))
+        } catch (e: SecurityException) {
+            if (::mediaControlsGroup.isInitialized) mediaControlsGroup.visibility = View.GONE
+        } catch (e: Exception) {
+            if (::mediaControlsGroup.isInitialized) mediaControlsGroup.visibility = View.GONE
+        }
+    }
+
+    private fun updateMediaSessions(controllers: List<MediaController>) {
+        if (!::mediaControlsGroup.isInitialized) return
+
+        val active = controllers.toSet()
+        mediaControllerCallbacks.keys.filter { it !in active }.toList().forEach { controller ->
+            try { mediaControllerCallbacks[controller]?.let(controller::unregisterCallback) } catch (_: Exception) {}
+            mediaControllerCallbacks.remove(controller)
+        }
+        controllers.forEach { controller ->
+            if (!mediaControllerCallbacks.containsKey(controller)) {
+                val callback = object : MediaController.Callback() {
+                    override fun onPlaybackStateChanged(state: PlaybackState?) = refreshMediaSessions()
+                    override fun onMetadataChanged(metadata: android.media.MediaMetadata?) = refreshMediaSessions()
+                    override fun onSessionDestroyed() = refreshMediaSessions()
+                }
+                mediaControllerCallbacks[controller] = callback
+                try { controller.registerCallback(callback, Handler(Looper.getMainLooper())) } catch (_: Exception) {}
+            }
+        }
+
+        val playing = controllers.firstOrNull {
+            it.playbackState?.state == PlaybackState.STATE_PLAYING
+        }
+        activeMediaController = playing
+        if (playing == null) {
+            mediaControlsGroup.visibility = View.GONE
+            mediaTitleTv.text = ""
+            return
+        }
+
+        val title = playing.metadata?.getString(android.media.MediaMetadata.METADATA_KEY_TITLE)
+            ?.takeIf { it.isNotBlank() }
+            ?: playing.packageName
+        mediaTitleTv.text = title
+        mediaPlayPauseBtn.setImageResource(R.drawable.ic_pause)
+        mediaPlayPauseBtn.contentDescription = getString(R.string.media_pause)
+        mediaControlsGroup.visibility = View.VISIBLE
+    }
+
+    private fun stopMediaControls() {
+        if (mediaSessionListenerRegistered) {
+            try {
+                mediaSessionManager?.removeOnActiveSessionsChangedListener(mediaSessionsChangedListener)
+            } catch (_: Exception) {}
+            mediaSessionListenerRegistered = false
+        }
+        mediaControllerCallbacks.forEach { (controller, callback) ->
+            try { controller.unregisterCallback(callback) } catch (_: Exception) {}
+        }
+        mediaControllerCallbacks.clear()
+        activeMediaController = null
+        mediaSessionManager = null
+    }
+
     private fun updateRunningTasks(recreateAdapter: Boolean = false) {
         val now = System.currentTimeMillis()
         if (now - lastUpdate < 500 && !recreateAdapter)
@@ -3358,8 +3688,12 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 apps.add(DockApp(pinnedApp.name, pinnedApp.packageName, pinnedApp.icon))
             }
 
-            val nApps =
+            // Keep at least two task slots so two simultaneous freeform windows
+            // can both remain represented in the taskbar even with a legacy max=1 preference.
+            val nApps = maxOf(
+                2,
                 if (orientation == Configuration.ORIENTATION_PORTRAIT) maxApps else maxAppsLandscape
+            )
 
             // heavy IPC happens here, off the main thread
             val fetchedTasks: ArrayList<AppTask> = withContext(Dispatchers.IO) {
@@ -3368,64 +3702,48 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
                 if (systemApp) {
                     AppUtils.getRunningTasks(activityManager, packageManager, nApps)
-                } else if (useShizukuDetection && shizuku.hasPermission) {
-                    // ── Shizuku متاح: نقدر نعرف التطبيق النشط الحقيقي + التطبيقات
-                    // الشغالة بالخلفية بدون قيود getRunningTasks() على التطبيقات
-                    // العادية. أول شي نجرب نجيب المهام الحقيقية عبر
-                    // getTasksViaShizuku (تشمل freeform/multi-window تطبيقات
-                    // ما تظهر بـ getRunningTasks() العادية)؛ لو فشلت أو رجعت
-                    // فاضية (صلاحية سُحبت بعد الفحص أعلاه، خطأ بتفسير
-                    // مخرجات `am stack list` على ROM معيّن، إلخ) نرجع لقائمة
-                    // الاستخدام الأخير getRecentTasks كـ fallback — نفس
-                    // السلوك القديم قبل هذا التحسين ──
-                    val viaShizuku = AppUtils.getTasksViaShizuku(context, packageManager, nApps)
-                    val recent = viaShizuku ?: AppUtils.getRecentTasks(context, nApps)
-                    shizuku.getForegroundPackage()?.let { fg ->
-                        if (fg.isNotEmpty() && fg != packageName &&
-                            fg != AppUtils.getCurrentLauncher(packageManager)
-                        ) {
-                            AppUtils.currentApp = fg
+                } else if (shizuku.hasPermission) {
+                    // Always fetch real tasks when Shizuku is authorized so floating
+                    // and freeform windows remain represented in the taskbar. The
+                    // optional detection preference controls liveness decoration, not
+                    // whether a real window is allowed to appear.
+                    val liveTasks = AppUtils.getTasksViaShizuku(context, packageManager, nApps)
+                    val recentTasks = AppUtils.getRecentTasks(context, nApps)
+                    val livePackages = liveTasks.orEmpty().mapTo(mutableSetOf()) { it.packageName }
+                    val combined = ArrayList<AppTask>(nApps)
+                    combined.addAll(liveTasks.orEmpty())
+                    combined.addAll(recentTasks.filter { it.packageName !in livePackages })
+                    if (useShizukuDetection) {
+                        shizuku.getForegroundPackage()?.let { fg ->
+                            if (fg.isNotEmpty() && fg != packageName &&
+                                fg != AppUtils.getCurrentLauncher(packageManager)
+                            ) AppUtils.currentApp = fg
                         }
-                    }
-                    // Bug fix — dock only showed one app as "running" no matter how
-                    // many are actually open. "recent" above is a 24h *usage
-                    // history* list when we fell back to getRecentTasks (see its
-                    // own kdoc — deliberately "recently used", not "currently
-                    // running"), and until now Shizuku was only ever used to
-                    // correct which ONE of those apps gets the foreground/bold-line
-                    // style — nothing checked whether the rest of that
-                    // history list were actually still alive in the
-                    // background, so every icon with any task always drew
-                    // some indicator regardless of real liveness.
-                    //
-                    // The icon list itself stays the full history/task list
-                    // (getRunningPackages() is deliberately NOT used to
-                    // filter fetchedTasks here) — recently-used apps should
-                    // stay visible in the dock even once closed, just
-                    // without any running indicator. What Shizuku actually
-                    // corrects is per-app liveness for the indicator dot/line
-                    // itself: see AppUtils.trulyRunningPackages below, read
-                    // by DockAppAdapter to decide dot vs. line vs. nothing.
-                    shizuku.getRunningPackages().let { running ->
-                        if (running.isNotEmpty()) {
-                            AppUtils.trulyRunningPackages = running.toSet()
+                        shizuku.getRunningPackages().let { running ->
+                            if (running.isNotEmpty()) AppUtils.trulyRunningPackages = running.toSet()
                         }
-                        // Empty result (unexpected dumpsys format on this
-                        // ROM, transient failure, etc.) — leave whatever
-                        // trulyRunningPackages already held rather than
-                        // wiping every indicator out from under a
-                        // momentary hiccup.
+                    } else {
+                        AppUtils.trulyRunningPackages = null
                     }
-                    recent
+                    ArrayList(combined.take(nApps))
                 } else {
-                    // Shizuku detection off (or unavailable) — no real
-                    // liveness signal to show per-app, so clear any stale
-                    // set from a previous session/toggle rather than letting
-                    // DockAppAdapter draw indicators based on data that's no
-                    // longer being refreshed.
                     AppUtils.trulyRunningPackages = null
                     AppUtils.getRecentTasks(context, nApps)
                 }
+            }
+
+            // If this ROM hides UsageStats or returns no usable Task IDs, keep
+            // successful launches visible as recent apps instead of leaving an
+            // empty dock. Real task entries always win over these id=-1 hints.
+            val seenPackages = fetchedTasks.mapTo(mutableSetOf()) { it.packageName }
+            val fallbackAdds = launchedAppFallback.values.toList().asReversed()
+                .filter { seenPackages.add(it.packageName) }
+            if (fallbackAdds.isNotEmpty()) {
+                val combined = ArrayList<AppTask>(fallbackAdds.size + fetchedTasks.size)
+                combined.addAll(fallbackAdds)
+                combined.addAll(fetchedTasks)
+                fetchedTasks.clear()
+                fetchedTasks.addAll(combined.take(nApps))
             }
 
             // Build the dock app list (pure in-memory, fast)
@@ -3438,8 +3756,15 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                 }
             } else {
                 fetchedTasks.reversed().forEach { task ->
-                    if (AppUtils.containsTask(apps, task) == -1)
+                    val existingIndex = AppUtils.containsTask(apps, task)
+                    if (existingIndex == -1) {
                         apps.add(DockApp(task))
+                    } else {
+                        // One dock icon can represent several freeform tasks
+                        // from the same package. Keep every task attached so
+                        // tapping the icon can switch between open windows.
+                        (apps[existingIndex] as? DockApp)?.addTask(task)
+                    }
                 }
             }
 
@@ -3658,6 +3983,27 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             appsBtnCenter.visibility = View.GONE
             appsBtn.visibility = if (appsEnabled) View.VISIBLE else View.GONE
         }
+        val navStyle = sharedPreferences.getString("nav_button_style", "pixel") ?: "pixel"
+        val navIcons = when (navStyle) {
+            "oneui" -> Triple(
+                R.drawable.ic_nav_oneui_back,
+                R.drawable.ic_nav_oneui_home,
+                R.drawable.ic_nav_oneui_recents
+            )
+            "aosp" -> Triple(
+                R.drawable.ic_back,
+                R.drawable.ic_home,
+                R.drawable.ic_recents
+            )
+            else -> Triple(
+                R.drawable.ic_nav_pixel_back,
+                R.drawable.ic_home,
+                R.drawable.ic_nav_pixel_recents
+            )
+        }
+        backBtn.setImageResource(navIcons.first)
+        homeBtn.setImageResource(navIcons.second)
+        recentBtn.setImageResource(navIcons.third)
         backBtn.visibility =
             if (sharedPreferences.getBoolean("enable_nav_back", true)) View.VISIBLE else View.GONE
         homeBtn.visibility =
@@ -3711,16 +4057,40 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     }
 
     private fun launchAssistant() {
-        // Google Assistant directly — no customization
-        val assistIntent = packageManager.getLaunchIntentForPackage("com.google.android.googlequicksearchbox")
-        if (assistIntent != null) {
-            assistIntent.action = Intent.ACTION_ASSIST
-            assistIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            try { context.startActivity(assistIntent) } catch (e: Exception) {}
-        } else {
+        // "app_assistant" is configurable from Settings → Default apps or
+        // Dock → Navigation. Prefer that app's assist handler, then its normal
+        // launch intent. If no app is selected, defer to Android's default
+        // ACTION_ASSIST handler instead of hard-coding Google.
+        val selectedPackage = sharedPreferences.getString("app_assistant", "").orEmpty()
+        if (selectedPackage.isNotBlank()) {
             try {
-                startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (e: ActivityNotFoundException) {}
+                val selectedAssist = Intent(Intent.ACTION_ASSIST)
+                    .setPackage(selectedPackage)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (selectedAssist.resolveActivity(packageManager) != null) {
+                    context.startActivity(selectedAssist)
+                    return
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("DockService", "Selected app did not handle ACTION_ASSIST", e)
+            }
+
+            val launchIntent = packageManager.getLaunchIntentForPackage(selectedPackage)
+            if (launchIntent != null) {
+                try {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(launchIntent)
+                    return
+                } catch (e: Exception) {
+                    android.util.Log.e("DockService", "Could not launch selected assistant app", e)
+                }
+            }
+        }
+
+        try {
+            startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: ActivityNotFoundException) {
+            android.widget.Toast.makeText(context, R.string.settings_screen_unavailable, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -3878,11 +4248,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         // ── Power option click listeners ──────────────────────────────────────
         powerMenu!!.findViewById<android.view.View>(R.id.item_settings)?.setOnClickListener {
             hidePowerMenu()
-            launchApp("standard", null,
-                android.content.Intent(this, com.youki.dex.activities.MainActivity::class.java)
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                        or android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK
-                        or android.content.Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT))
+            openSettingsScreen()
         }
         powerMenu!!.findViewById<android.view.View>(R.id.item_lock)?.setOnClickListener {
             hidePowerMenu(); lockScreen()
@@ -4139,7 +4505,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     /**
      * Restores the phone display settings (resolution/density) back to
-     * their system defaults when YoukiDex is closed or restarted.
+     * their system defaults when DevDex is closed or restarted.
      */
     private fun restorePhoneDisplaySettings() {
         try {
@@ -4385,6 +4751,45 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 if (shizuku.hasPermission) {
+                    // One-time safety migration: older DevDex versions enabled the
+                    // global developer option that forces every app Activity to be
+                    // resizable. That override can destabilize apps that expect their
+                    // normal fullscreen launch path, and is not needed for apps / ROM
+                    // features that genuinely support freeform. Reset the legacy
+                    // value once, then leave any later user choice alone.
+                    val forceResizeMigrationKey = "devdex_force_resizable_safety_migration_v1"
+                    if (!sharedPreferences.getBoolean(forceResizeMigrationKey, false)) {
+                        try {
+                            val oldValue = shizuku.runShellSync(
+                                "settings get global development_force_resizable_activities"
+                            ).orEmpty().trim()
+                            if (oldValue != "0") {
+                                shizuku.runShellSync(
+                                    "settings put global development_force_resizable_activities 0"
+                                )
+                            }
+                            val verified = shizuku.runShellSync(
+                                "settings get global development_force_resizable_activities"
+                            ).orEmpty().trim()
+                            if (verified == "0") {
+                                sharedPreferences.edit()
+                                    .putBoolean(forceResizeMigrationKey, true)
+                                    .apply()
+                                android.util.Log.i(
+                                    "DockService",
+                                    "Disabled legacy global force-resizable override"
+                                )
+                            } else {
+                                android.util.Log.w(
+                                    "DockService",
+                                    "Could not verify force-resizable safety migration; will retry next start"
+                                )
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.w("DockService", "Force-resizable safety migration failed", e)
+                        }
+                    }
+
                     // FIX #14: Check current value before writing to avoid redundant DB writes on every service start
                     val current = android.provider.Settings.Global.getInt(contentResolver, "enable_freeform_support", 0)
                     if (current != 1)
@@ -4437,6 +4842,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         initHandler.removeCallbacksAndMessages(null)
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = null
+        stopMediaControls()
         serviceScope.cancel() // Cancel all running coroutines to prevent leaks
         castManager?.destroy()
         DeviceUtils.hideStatusBar(this, false)
@@ -6415,7 +6821,7 @@ class DockTileService : TileService() {
                 showDialog(
                     android.app.AlertDialog.Builder(this)
                         .setTitle("Notification access required")
-                        .setMessage("YoukiDex needs notification access to work correctly. You will be redirected to enable it.")
+                        .setMessage("DevDex needs notification access to work correctly. You will be redirected to enable it.")
                         .setPositiveButton("OK") { _, _ ->
                             launchActivity(
                                 Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
@@ -6445,7 +6851,7 @@ class DockTileService : TileService() {
                     showDialog(
                         android.app.AlertDialog.Builder(this)
                             .setTitle("Accessibility service required")
-                            .setMessage("YoukiDex needs the Accessibility service to work. You will be redirected to Settings.")
+                            .setMessage("DevDex needs the Accessibility service to work. You will be redirected to Settings.")
                             .setPositiveButton("OK") { _, _ ->
                                 launchActivity(
                                     Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -6488,7 +6894,7 @@ class DockTileService : TileService() {
             .getDefaultSharedPreferences(applicationContext)
             .getBoolean("dex_mode_active", false)
         tile.state = if (dexActive) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = if (dexActive) "Youki DEX " else "Youki DEX"
+        tile.label = if (dexActive) "DevDex " else "DevDex"
         tile.updateTile()
     }
 }

@@ -1,4 +1,8 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <Preference
+        android:key="open_builtin_file_manager"
+        android:title="@string/fm_builtin_title"
+        android:summary="@string/fm_builtin_summary" />
     <com.youki.dex.preferences.AppChooserPreference
         android:title="@string/app_browser_title"
         android:key="app_browser"/>

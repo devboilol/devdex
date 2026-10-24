@@ -1,7 +1,16 @@
 <resources>
 
     <!-- General -->
-    <string name="app_name">Youki DEX</string>
+    <string name="app_name">DevDex</string>
+    <string name="language_category">Language</string>
+    <string name="app_language_title">App language</string>
+    <string name="app_language_summary">Choose the language used in DevDex</string>
+    <string name="language_system_default">System default</string>
+    <string name="language_english">English</string>
+    <string name="language_vietnamese">Tiếng Việt</string>
+    <string name="onboarding_language_label">Choose your language</string>
+    <string name="onboarding_security_warning_title">Use on a secondary device</string>
+    <string name="onboarding_security_warning">DevDex uses powerful accessibility and overlay features and may interfere with banking, government, identity, payment, or other security-sensitive apps. Do not install it on a device you rely on for those services. A spare tablet is recommended. Some apps may block access or refuse to run while desktop overlays are active.</string>
     <string name="multi_user">Users</string>
     <string name="none">None</string>
     <string name="move">Move</string>
@@ -34,13 +43,13 @@
     <string name="write_secure">Write secure settings</string>
     <string name="write_secure_desc">Needed for advanced settings. This is a special permission that must be granted with root or adb by running: \npm grant com.youki.dex android.permission.WRITE_SECURE_SETTINGS</string>
     <string name="default_launcher">Set as default launcher</string>
-    <string name="default_launcher_desc">Set Youki DEX as your default home screen launcher so the desktop loads automatically.</string>
+    <string name="default_launcher_desc">Set DevDex as your default home screen launcher so the desktop loads automatically.</string>
     <string name="shizuku">Shizuku</string>
     <string name="shizuku_desc">Shizuku grants privileged shell access without wireless ADB. Install Shizuku from Play Store, run it once via ADB or Wireless Debugging, then grant permission here.</string>
     <string name="shizuku_active_app_detection_title">Detect active app via Shizuku</string>
     <string name="shizuku_active_app_detection_summary">Uses Shizuku (when connected) to reliably detect the foreground app and apps running in the background, instead of the restricted default method</string>
     <string name="shizuku_open">Open Shizuku</string>
-    <string name="shell_terminal">Youki Shell Terminal</string>
+    <string name="shell_terminal">DevDex Shell Terminal</string>
     <string name="shell_terminal_desc">A built-in terminal that runs shell commands directly inside the app using Root or Shizuku.</string>
     <string name="manage">Manage…</string>
     <string name="grant">Grant</string>
@@ -133,6 +142,11 @@
     <string name="long_press_action">Long press action</string>
     <string name="tap_to_set_long_action">Tap to configure long press/hover action</string>
     <string name="enable_nav_assist_title">Assistant</string>
+    <string name="nav_button_style_title">Navigation button style</string>
+    <string name="nav_button_style_summary">Choose the look of the Back, Home and Recents icons.</string>
+    <string name="nav_style_pixel">Pixel</string>
+    <string name="nav_style_oneui">Samsung One UI</string>
+    <string name="nav_style_aosp">AOSP (Android)</string>
     <string name="quick_settings_panel">Quick Settings</string>
     <string name="resource_monitor_title">Resource Monitor</string>
     <string name="resource_monitor_summary">Show CPU and RAM usage in the taskbar</string>
@@ -259,7 +273,7 @@
 
     <!-- Advanced page -->
     <string name="advanced">Advanced</string>
-    <string name="these_settings_are_intended_fo">These settings are intended for advanced users. Only change them if you know what you are doing</string>
+    <string name="these_settings_are_intended_fo">Advanced settings. Use DevDex on a secondary device, preferably a tablet. Accessibility and overlays may interfere with banking, government, identity, payment, or other security-sensitive apps.</string>
     <string name="prefer_last_display">Prefer secondary displays</string>
     <string name="prefer_last_display_summary">Prefer secondary displays for displaying apps and the dock</string>
     <string name="restart_accessibility">Changing this setting requires restarting the Accessibility service</string>
@@ -296,7 +310,61 @@
     <string name="allow_sysapp_uninstall_title">Allow uninstalling system apps</string>
     <string name="allow_sysapp_uninstall_summary">Please be careful, this can be really dangerous</string>
     <string name="hide_status_bar_title">Hide status bar</string>
-    <string name="hide_status_bar_summary">Hide the top Android status bar for a cleaner desktop look</string>
+    <string name="hide_status_bar_summary">Off by default: keep the Android status bar visible. Turn on to hide it in desktop mode.</string>
+    <string name="multitasking_compatibility_category">Multitasking compatibility</string>
+    <string name="experimental_freeform_title">Enable experimental freeform windows</string>
+    <string name="experimental_freeform_summary">For ROMs that hide freeform mode. Uses Android global settings, requires Shizuku or Root, and normally requires a reboot. This is not guaranteed on every manufacturer ROM.</string>
+    <string name="experimental_freeform_permission_title">Could not change multitasking settings</string>
+    <string name="experimental_freeform_permission_message">DevDex could not write Android\'s freeform settings. Make sure Shizuku is running and DevDex is authorized, or grant Root access. If the ROM blocks these settings, freeform windows may not be available.</string>
+    <string name="experimental_freeform_reboot_title">Restart required</string>
+    <string name="experimental_freeform_reboot_message">Android\'s experimental freeform setting has been enabled. Restart the tablet to let HyperOS apply it. After reboot, DevDex will try to open all compatible apps in separate windows.</string>
+    <string name="experimental_freeform_disabled_reboot_message">The previous Android multitasking settings have been restored. Restart the tablet to apply the change.</string>
+    <string name="experimental_freeform_required">This ROM does not expose freeform windows. Open Settings → Advanced → Multitasking compatibility, enable experimental freeform windows, then restart the tablet.</string>
+    <string name="ignore_orientation_requests_title">Ignore app orientation requests (experimental)</string>
+    <string name="ignore_orientation_requests_summary">System-wide override for apps that insist on portrait mode. Requires Shizuku or Root on supported ROMs and may affect every app. Turn it off to restore the previous value.</string>
+    <string name="orientation_override_unavailable_title">Orientation override unavailable</string>
+    <string name="orientation_override_unavailable_message">This ROM did not accept the WindowManager orientation command. Check that Shizuku is running and authorized, or grant Root. The setting was not left enabled.</string>
+    <string name="orientation_override_applied_title">Orientation setting changed</string>
+    <string name="orientation_override_applied_message">The system is now set to ignore app orientation requests where supported. This is global, experimental, and can make portrait-only apps or camera screens behave incorrectly.</string>
+    <string name="orientation_override_restored_message">The previous system orientation-request setting has been restored.</string>
+    <string name="experimental_desktop_widgets_title">Enable desktop widgets (experimental)</string>
+    <string name="experimental_desktop_widgets_summary">Opt in to testing Android widgets on the desktop. Widgets stay off by default because some providers and ROMs have lifecycle bugs.</string>
+    <string name="desktop_widgets_picker_unavailable">The system widget picker could not be opened.</string>
+    <string name="fm_internal_storage">Internal storage</string>
+    <string name="fm_folder">Folder</string>
+    <string name="fm_downloads">Downloads</string>
+    <string name="fm_items_count">%1$d items</string>
+    <string name="fm_permission_title">File access required</string>
+    <string name="fm_permission_message">DevDex Files needs storage access to browse files. On Android 11 and newer, grant All files access. On older versions, grant storage permission.</string>
+    <string name="fm_open_settings">Open settings</string>
+    <string name="fm_use_system_picker">Use system file picker</string>
+    <string name="fm_permission_missing">Storage access is not granted. Tap here to review permissions or use the system file picker.</string>
+    <string name="fm_open_failed">Could not open this file. Install an app that supports its file type.</string>
+    <string name="fm_create_folder_prompt">Enter a name for the new folder.</string>
+    <string name="fm_new_folder_name">Folder name</string>
+    <string name="fm_invalid_folder_name">Enter a valid name without slashes or path segments.</string>
+    <string name="fm_create_failed">Could not create the folder.</string>
+    <string name="fm_delete_selected_confirm">Delete %1$d selected items? This cannot be undone.</string>
+    <string name="fm_delete_confirm">Delete %1$s? This cannot be undone.</string>
+    <string name="fm_selected_count">%1$d selected</string>
+    <string name="fm_select_all">Select all</string>
+    <string name="fm_show_hidden">Show hidden files</string>
+    <string name="fm_hide_hidden">Hide hidden files</string>
+    <string name="fm_clear_search">Clear search</string>
+    <string name="fm_open">Open</string>
+    <string name="fm_no_search_results">No matching files in this folder.</string>
+    <string name="fm_sort_name">Name</string>
+    <string name="fm_sort_modified">Date modified</string>
+    <string name="fm_sort_size">Size</string>
+    <string name="fm_destination">Choose destination</string>
+    <string name="fm_use_this_folder">Use this folder</string>
+    <string name="fm_operation_complete">Operation complete: %1$d items.</string>
+    <string name="fm_operation_failed">Could not complete the file operation.</string>
+    <string name="fm_file_details">Path: %1$s\nSize: %2$s\nModified: %3$s</string>
+    <string name="fm_rename">Rename</string>
+    <string name="fm_details">Details</string>
+    <string name="fm_builtin_title">Open DevDex file manager</string>
+    <string name="fm_builtin_summary">Browse local files inside DevDex. Requires storage access on the device.</string>
     <string name="hide_nav_buttons_title">Hide navigation buttons</string>
     <string name="hide_nav_buttons_summary">Hides Android software navigation buttons. Needs reboot</string>
     <string name="disable_taskbar_title">Disable taskbar</string>
@@ -331,9 +399,9 @@
     <string name="about_version">Version</string>
     <string name="about_version_value">3.5</string>
     <string name="help_and_about">Help and about</string>
-    <string name="a_launcher_for_android_x86_by_">A DeX mode launcher by Mr Youki</string>
+    <string name="a_launcher_for_android_x86_by_">Desktop launcher for Android</string>
     <string name="help">Help</string>
-    <string name="youki_dex_its_free_and_open_">Youki DEX is free and open source. Contribute on GitHub</string>
+    <string name="youki_dex_its_free_and_open_">DevDex is free and open source. Contribute on GitHub</string>
     <string name="github">GitHub</string>
     <string name="discord">Discord</string>
     <string name="about_project_discord_summary">Join our Discord community</string>
@@ -347,7 +415,7 @@ Grant Accessibility permission from Settings to use all features.
 To uninstall, remove Device Administrator permission first.</string>
     <string name="more_help">More help</string>
     <string name="contributors">Contributors</string>
-    <string name="tap_to_see_the_list_of_great_p">Tap to see the list of great people that has contributed to Youki DEX</string>
+    <string name="tap_to_see_the_list_of_great_p">Tap to see the list of great people that has contributed to DevDex</string>
     <string name="accessibility_service_description">Allows to perform actions such as Back</string>
     <string name="join_telegram_title">Telegram group</string>
     <string name="join_telegram_summary">Got any questions? Join the Telegram support group</string>
@@ -410,8 +478,8 @@ To uninstall, remove Device Administrator permission first.</string>
     <!-- Toasts -->
     <string name="tablet_mode_on">Tablet mode on</string>
     <string name="tablet_mode_off">Tablet mode off</string>
-    <string name="start_message">Youki DEX started</string>
-    <string name="enable_access_help">Find and enable Youki DEX service</string>
+    <string name="start_message">DevDex started</string>
+    <string name="enable_access_help">Find and enable DevDex service</string>
 
     <!-- Crash dialog -->
     <string name="something_wrong">Something went wrong</string>
@@ -438,7 +506,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="bubble_mode_custom">Custom Color</string>
 
     <string name="system_sounds">System UI Sounds</string>
-    <string name="youki_sounds">YoukiDex Sounds</string>
+    <string name="devdex_sounds">DevDex Sounds</string>
     <string name="sound_lock">Lock</string>
     <string name="sound_unlock">Unlock</string>
     <string name="sound_low_battery">Low Battery</string>
@@ -523,7 +591,7 @@ To uninstall, remove Device Administrator permission first.</string>
 
     <!-- Plugins section -->
     <string name="plugins">Plugins</string>
-    <string name="plugins_subtitle">Extend YoukiDEX capabilities</string>
+    <string name="plugins_subtitle">Extend DevDex capabilities</string>
     <string name="plugin_font">Custom Font</string>
     <string name="plugin_font_desc">Apply a TTF or OTF font to the entire DEX interface</string>
     <string name="plugin_font_active">Font active</string>
@@ -592,9 +660,9 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="tweak_section">Performance tweaks</string>
     <string name="tweak_section_root">Requires Root</string>
 
-    <!-- ═══ Youki Live Wallpaper Engine (rebuilt) ═══ -->
+    <!-- ═══ DevDex Live Wallpaper Engine (rebuilt) ═══ -->
     <string name="lw_section_title">Live Wallpaper</string>
-    <string name="lw_service_label">YoukiDex Live Wallpaper</string>
+    <string name="lw_service_label">DevDex Live Wallpaper</string>
     <string name="lw_service_description">Animated video wallpapers with free transform, color tuning, and performance controls.</string>
     <string name="lw_gallery_title">Wallpapers</string>
     <string name="lw_gallery_empty">No wallpapers yet — tap + to add a video</string>
@@ -607,7 +675,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="qa_self_test_title">Run self-test</string>
     <string name="qa_self_test_summary">Opens every screen in an isolated background process and checks for crashes or silent failures. A crash here can\'t affect the app you\'re using. Takes a few minutes.</string>
     <string name="qa_self_test_confirm_title">Run self-test?</string>
-    <string name="qa_self_test_confirm_message">This opens every screen in the app, one by one, inside a separate isolated process to look for bugs. It will take a few minutes and can\'t crash the app you\'re currently using. A log is saved to Download/YoukiDex/.</string>
+    <string name="qa_self_test_confirm_message">This opens every screen in the app, one by one, inside a separate isolated process to look for bugs. It will take a few minutes and can\'t crash the app you\'re currently using. A log is saved to Download/DevDex/.</string>
     <string name="qa_self_test_confirm_start">Start</string>
     <string name="qa_please_wait">Please wait…</string>
     <string name="qa_checking_target">Checking: %1$s</string>
@@ -627,7 +695,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="qa_error_exceeded_timeout">Exceeded %1$dms</string>
     <string name="qa_error_failed_after_restart">Failed again after automatic restart (%1$s): %2$s</string>
     <string name="lw_applied">Wallpaper applied</string>
-    <string name="lw_apply_unsupported">Your device doesn\'t support setting live wallpapers from apps directly. Go to Settings → Wallpaper to select Youki DEX manually.</string>
+    <string name="lw_apply_unsupported">Your device doesn\'t support setting live wallpapers from apps directly. Go to Settings → Wallpaper to select DevDex manually.</string>
     <string name="lw_tab_position">Position &amp; Performance</string>
     <string name="lw_tab_color">Color</string>
     <string name="lw_tab_performance">Performance</string>
@@ -700,6 +768,10 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="top">Top</string>
     <string name="bottom">Bottom</string>
     <string name="close_window">Close Window</string>
+    <string name="close_app">Close app</string>
+    <string name="close_app_privilege_required">Could not close this app. Grant Shizuku or Root access on this device.</string>
+    <string name="window_control_privilege_required">Android rejected the close-window command. DevDex detected Shizuku permission, so this may be an unsupported task command on this ROM.</string>
+    <string name="window_resize_failed">This device could not resize the window. Use native window controls or grant Shizuku/Root access.</string>
 
     <!-- Theme Transparency Override (1.15) -->
     <string name="override_dock_background_opacity">Override Dock Background Opacity</string>
@@ -717,10 +789,10 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="no_other_launcher_found">No other launcher found</string>
     <string name="failed_to_open_app">Failed to open app</string>
     <string name="notification_access_required">Notification access required</string>
-    <string name="notification_access_message">YoukiDex needs notification access to work correctly. You will be redirected to enable it.</string>
+    <string name="notification_access_message">DevDex needs notification access to work correctly. You will be redirected to enable it.</string>
     <string name="skip">Skip</string>
     <string name="accessibility_service_required">Accessibility service required</string>
-    <string name="accessibility_service_message">YoukiDex needs the Accessibility service to work. You will be redirected to Settings.</string>
+    <string name="accessibility_service_message">DevDex needs the Accessibility service to work. You will be redirected to Settings.</string>
     <string name="accessibility_service_auto_failed_message">Could not enable the service automatically. You will be redirected to enable it manually from Settings.</string>
     <string name="all">All</string>
     <string name="add_new_source">Add new source</string>
@@ -1032,7 +1104,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="editor_preview_scale_summary">How much of the editor\'s width the 16:9 preview takes up, as a percentage (40-100). Requires reopening the editor.</string>
     <string name="editor_preview_aspect_title">Preview aspect ratio</string>
     <string name="editor_preview_aspect_summary">The shape of the preview window. \"Auto\" reads your screen ratio automatically. Requires reopening the editor.</string>
-    <string name="onboarding_welcome_title">Welcome to Youki DEX</string>
+    <string name="onboarding_welcome_title">Welcome to DevDex</string>
     <string name="onboarding_welcome_body">Let\'s get your desktop set up. This will only take a minute.</string>
     <string name="onboarding_permissions_title">One more thing</string>
     <string name="onboarding_permissions_body">Granting Shizuku access lets the desktop start up directly, with no extra prompts along the way. You can skip this and grant it later from Settings instead.</string>
@@ -1047,7 +1119,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="workshop_page_load_timeout">This page is taking too long to load. Pull down to try again.</string>
     <string name="onboarding_done_title">You\'re all set</string>
     <string name="onboarding_done_body">Your desktop is ready to go.</string>
-    <string name="onboarding_support_title">Enjoying Youki DEX?</string>
+    <string name="onboarding_support_title">Enjoying DevDex?</string>
     <string name="onboarding_support_star_github">Star it on GitHub</string>
     <string name="onboarding_support_join_discord">Join our Discord community</string>
     <string name="onboarding_support_report_issue">Found a bug or have an idea?</string>
@@ -1073,6 +1145,26 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="trackpad_mode_direct">This Screen</string>
     <string name="trackpad_mode_otg">USB PC (OTG)</string>
     <string name="trackpad_status_no_display">No screen connected</string>
-    <string name="trackpad_status_accessibility_needed">Enable YoukiDex\'s accessibility service first (Settings)</string>
+    <string name="trackpad_status_accessibility_needed">Enable DevDex\'s accessibility service first (Settings)</string>
 
+    <string name="window_task_not_found">DevDex could not identify this window task. Try granting DevDex Shizuku access or use Close app if ending the whole session is acceptable.</string>
+    <string name="shizuku_permission_required_for_window_close">Shizuku may be running, but DevDex still needs authorization in Shizuku. Grant access to DevDex, then tap Close again.</string>
+    <string name="window_controls_category">Window controls</string>
+    <string name="window_controls_enabled_title">Show floating window controls</string>
+    <string name="window_controls_enabled_summary">Show resize and close buttons for floating app windows.</string>
+    <string name="window_controls_opacity_title">Window control opacity</string>
+    <string name="window_resize">Resize window</string>
+    <string name="media_previous">Previous track</string>
+    <string name="media_pause">Pause media</string>
+    <string name="media_next">Next track</string>
+    <string name="window_controls_opacity_summary">Adjust the transparency of the resize/close control group (100% = solid).</string>
+    <string name="window_resize_25">25% of screen (quarter area)</string>
+    <string name="window_resize_50">50% of screen (half area)</string>
+    <string name="window_resize_fullscreen">Full screen</string>
+    <string name="window_controls_opacity_menu">Handle opacity (%1$d%%)…</string>
+    <string name="desktop_gestures_category">Gestures</string>
+    <string name="desktop_double_tap_to_sleep_title">Double-tap to sleep</string>
+    <string name="desktop_double_tap_to_sleep_summary">Double-tap an empty area of the desktop to lock the screen.</string>
+    <string name="double_tap_sleep_requires_service">Enable DevDex Accessibility Service or Device Admin to use this gesture.</string>
+    <string name="fm_select_current_folder_search">Search this folder</string>
 </resources>

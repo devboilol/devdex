@@ -5,6 +5,9 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
+import android.os.Build
+import android.os.Bundle
+import android.util.SizeF
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 
@@ -83,38 +86,40 @@ class DesktopWidgetManager(private val context: Context) {
         }
     }
 
-    private val host = AppWidgetHost(context, APPWIDGET_HOST_ID)
+    private val host = object : AppWidgetHost(context, APPWIDGET_HOST_ID) {
+        fun clearManagedViews() = clearViews()
+    }
     val manager: AppWidgetManager = AppWidgetManager.getInstance(context)
+    private var listening = false
 
-    /** Start listening for widget updates (call in onStart/onResume). */
     fun start() {
+        if (listening) return
         try {
             host.startListening()
+            listening = true
         } catch (e: Exception) {
-            // Defensive: system-side widget host state can be inconsistent
-            // (e.g. a provider was uninstalled while we were stopped).
+            listening = false
         }
     }
 
-    /** Stop listening (call in onStop). */
     fun stop() {
+        if (!listening) return
         try {
             host.stopListening()
         } catch (e: Exception) {
-            // Defensive: AppWidgetHost.stopListening() can throw NPE deep in
-            // AppWidgetServiceImpl when a widget's provider/id state is stale
-            // (system-side null Provider.id). Swallow rather than crash the
-            // activity on a call whose only job is to unregister listeners.
+            // OEM widget services can throw for stale IDs; do not crash the desktop.
+        } finally {
+            listening = false
         }
     }
 
-    /** Release the host (call in onDestroy). */
+    fun clearManagedViews() {
+        try { host.clearManagedViews() } catch (e: Exception) {}
+    }
+
     fun release() {
-        try {
-            host.stopListening()
-        } catch (e: Exception) {
-            // See stop() above.
-        }
+        stop()
+        clearManagedViews()
     }
 
     /**
@@ -128,8 +133,13 @@ class DesktopWidgetManager(private val context: Context) {
      * Must be called when a widget is removed from the desktop.
      */
     fun deleteWidgetId(hostId: Int) {
-        host.deleteAppWidgetId(hostId)
-        removeWidgetPrefs(context, hostId)
+        try {
+            host.deleteAppWidgetId(hostId)
+        } catch (e: Exception) {
+            // Clean stale local state even if the system no longer knows this host ID.
+        } finally {
+            removeWidgetPrefs(context, hostId)
+        }
     }
 
     /**
@@ -154,8 +164,19 @@ class DesktopWidgetManager(private val context: Context) {
         // state class, producing "Wrong state class... same id" crashes. Guard
         // by always inflating via the host with a distinct, freshly allocated id.
         val view = host.createView(context, hostId, info)
-        view.minimumWidth  = cellWidthPx  * colSpan
+        val density = context.resources.displayMetrics.density.coerceAtLeast(0.1f)
+        val widthDp = (cellWidthPx * colSpan / density).toInt().coerceAtLeast(1)
+        val heightDp = (cellHeightPx * rowSpan / density).toInt().coerceAtLeast(1)
+        view.minimumWidth = cellWidthPx * colSpan
         view.minimumHeight = cellHeightPx * rowSpan
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                view.updateAppWidgetSize(Bundle(), listOf(SizeF(widthDp.toFloat(), heightDp.toFloat())))
+            } else {
+                @Suppress("DEPRECATION")
+                view.updateAppWidgetSize(Bundle(), widthDp, heightDp, widthDp, heightDp)
+            }
+        } catch (e: Exception) {}
         return view
     }
 

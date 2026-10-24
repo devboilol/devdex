@@ -28,7 +28,7 @@ import java.io.IOException
  *   System plays them automatically at the right time (lock, dock, battery...)
  *   No BroadcastReceiver or MediaPlayer needed
  *
- * Custom YoukiDex sounds (startup, usb, charge…):
+ * Custom DevDex sounds (startup, usb, charge…):
  *   Saved as a path in SharedPreferences
  *   DockService plays them via the fixed MediaPlayer (with GC fix)
  */
@@ -48,7 +48,7 @@ class SoundsPreferences : PreferenceFragmentCompat() {
         "sys_desk_undock_sound"       to "desk_undock_sound"
     )
 
-    // YoukiDex sounds — stored in SharedPrefs only
+    // DevDex sounds — stored in SharedPrefs only
     private val customSoundKeys = setOf(
         "startup_sound", "usb_sound", "charge_sound",
         "charge_complete_sound", "notification_sound"
@@ -135,7 +135,7 @@ class SoundsPreferences : PreferenceFragmentCompat() {
         if (systemKey != null) {
             applySystemSound(systemKey, absolutePath)
         }
-        // Custom YoukiDex sounds: setSound() is enough — DockService reads from SharedPrefs
+        // Custom DevDex sounds: setSound() is enough — DockService reads from SharedPrefs
     }
 
     // ══════════════════════════════════════════════════════
@@ -150,7 +150,7 @@ class SoundsPreferences : PreferenceFragmentCompat() {
             shizuku.isAvailable && shizuku.hasPermission -> {
                 // ① chmod so SystemUI can read the file
                 shizuku.runShell(buildChmodCommands(filePath)) { chmodResult ->
-                    Log.d("YoukiDex", "chmod: $chmodResult")
+                    Log.d("DevDex", "chmod: $chmodResult")
                     // ② Write the path to Settings.System
                     val ok = DeviceUtils.putSystemSetting(ctx, systemKey, filePath)
                     if (!ok) showPermissionToast()
@@ -204,10 +204,10 @@ class SoundsPreferences : PreferenceFragmentCompat() {
                     input.copyTo(output)
                 }
             }
-            Log.d("YoukiDex", "Audio copied → ${destFile.absolutePath}")
+            Log.d("DevDex", "Audio copied → ${destFile.absolutePath}")
             destFile
         } catch (e: IOException) {
-            Log.e("YoukiDex", "copyAudioFile failed: ${e.message}")
+            Log.e("DevDex", "copyAudioFile failed: ${e.message}")
             null
         }
     }

@@ -37,10 +37,10 @@
             android:textColor="?attr/colorOnSurfaceVariant"
             android:gravity="center" />
 
-        <!-- Support section — introduces GitHub/Discord as the first place
+        <!-- Support section — introduces GitHub as the first place
              to get help or join the community, right as the user finishes
              setup. Same row pattern (icon + title + summary,
-             selectableItemBackground) as row_github/row_discord in
+             selectableItemBackground) as row_github in
              fragment_help_about.xml for visual consistency; wired up in
              OnboardingDoneFragment with the same openUrl(...) approach used
              by HelpAboutPreferences. -->
@@ -94,34 +94,7 @@
 
                 </LinearLayout>
 
-                <LinearLayout
-                    android:id="@+id/row_onboarding_discord"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground"
-                    android:padding="16dp">
-
-                    <ImageView
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:src="@drawable/ic_discord"
-                        android:contentDescription="@null" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="16dp"
-                        android:text="@string/onboarding_support_join_discord"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-
-                </LinearLayout>
+                
 
                 <!-- Third row — points to GitHub Issues directly, wired up
                      in OnboardingDoneFragment with the same
@@ -183,19 +156,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Small-print clarifying why Discord is emphasized right next to
-             GitHub above — see discord_is_faster_notice's other use in
-             HelpAboutPreferences (Snackbar on tapping the About screen's app
-             identity card) for the same message. -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/discord_is_faster_notice"
-            android:textSize="12sp"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:alpha="0.6"
-            android:gravity="center" />
+
 
     </LinearLayout>
 

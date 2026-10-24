@@ -14,6 +14,8 @@ import android.widget.ViewSwitcher
 import androidx.core.widget.addTextChangedListener
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
@@ -67,6 +69,20 @@ class AppearancePreferences : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.preferences_appearance, arg1)
         mainColorPref   = findPreference("theme_main_color")!!
         bubbleColorPref = findPreference("bubble_color_picker")!!
+
+        // Apply a per-app locale without changing the phone's system language.
+        // AppCompat persists this selection and recreates active AppCompat screens.
+        findPreference<androidx.preference.ListPreference>("app_language")
+            ?.setOnPreferenceChangeListener { _, newValue ->
+                val localeTags = newValue.toString()
+                val locales = if (localeTags == "system") {
+                    LocaleListCompat.getEmptyLocaleList()
+                } else {
+                    LocaleListCompat.forLanguageTags(localeTags)
+                }
+                AppCompatDelegate.setApplicationLocales(locales)
+                true
+            }
 
         // Bubble mode: show custom controls only when mode = "custom"
         val prefs = preferenceManager.sharedPreferences!!

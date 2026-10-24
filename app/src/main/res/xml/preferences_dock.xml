@@ -6,8 +6,31 @@
             android:title="@string/dock_position_title"
             android:summary="@string/dock_position_summary" />
     </PreferenceCategory>
+    <PreferenceCategory android:title="@string/window_controls_category">
+        <SwitchPreferenceCompat
+            android:key="window_controls_enabled"
+            android:title="@string/window_controls_enabled_title"
+            android:summary="@string/window_controls_enabled_summary"
+            android:defaultValue="true" />
+        <com.youki.dex.preferences.SliderPreference
+            android:key="window_controls_opacity"
+            android:title="@string/window_controls_opacity_title"
+            android:summary="@string/window_controls_opacity_summary"
+            android:dependency="window_controls_enabled"
+            android:defaultValue="0.9" />
+    </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/navigation">
+        <ListPreference
+            android:key="nav_button_style"
+            android:title="@string/nav_button_style_title"
+            android:summary="@string/nav_button_style_summary"
+            android:entries="@array/nav_button_styles"
+            android:entryValues="@array/nav_button_style_values"
+            android:defaultValue="pixel" />
+        <com.youki.dex.preferences.AppChooserPreference
+            android:key="app_assistant"
+            android:title="@string/app_assistant_title" />
 		<SwitchPreferenceCompat
             android:key="enable_nav_apps"
             android:title="@string/enable_apps_btn"
@@ -28,7 +51,7 @@
         <SwitchPreferenceCompat
             android:key="enable_nav_assist"
             android:title="@string/enable_nav_assist_title"
-            android:defaultValue="false" />
+            android:defaultValue="true" />
     </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/quick_settings">

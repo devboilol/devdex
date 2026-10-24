@@ -161,12 +161,69 @@ object DeviceUtils {
     }
 
     fun hideStatusBar(context: android.content.Context, hide: Boolean) {
+        val resolver = context.contentResolver
+        val desiredPolicies = try {
+            android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty()
+                .split(',')
+                .map { it.trim() }
+                .filter {
+                    it.isNotEmpty() &&
+                        it != "null" &&
+                        it != "immersive.full=*" &&
+                        it != "immersive.status=*"
+                }
+                .toMutableList()
+                .apply {
+                    // Do not use immersive.full: it also hides navigation and can force
+                    // gesture-navigation devices into a different navigation mode.
+                    if (hide) add("immersive.status=*")
+                }
+                .joinToString(",")
+        } catch (e: Exception) {
+            if (hide) "immersive.status=*" else ""
+        }
+
+        val value: String? = if (desiredPolicies.isEmpty()) null else desiredPolicies
+        fun isApplied(): Boolean = try {
+            android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty() ==
+                desiredPolicies
+        } catch (e: Exception) {
+            false
+        }
+
+        // Prefer the normal API. Some devices deny WRITE_SECURE_SETTINGS until
+        // Shizuku/root is granted, so fall back to a privileged route and verify
+        // the setting actually changed instead of silently claiming success.
         try {
-            android.provider.Settings.Global.putString(
-                context.contentResolver,
-                "policy_control",
-                if (hide) "immersive.full=*" else "null"
-            )
+            android.provider.Settings.Global.putString(resolver, "policy_control", value)
+            if (isApplied()) return
+        } catch (e: Exception) {}
+
+        val command = if (value == null) {
+            "settings delete global policy_control"
+        } else {
+            val escaped = value.replace("'", "'\\''")
+            "settings put global policy_control '$escaped'"
+        }
+
+        try {
+            val shell = com.youki.dex.server.ShellManager
+            if (shell.isAvailable) {
+                shell.execSync(command)
+                if (isApplied()) return
+            }
+        } catch (e: Exception) {}
+
+        try {
+            val shizuku = ShizukoManager.getInstance(context)
+            if (shizuku.hasPermission) {
+                shizuku.runShellSyncWithStderr(command)
+                if (isApplied()) return
+            }
+        } catch (e: Exception) {}
+
+        try {
+            runAsRoot(command)
         } catch (e: Exception) {}
     }
 
@@ -260,7 +317,7 @@ object DeviceUtils {
         // Check that the file exists before attempting playback
         val file = File(filePath)
         if (!file.exists() || !file.canRead()) {
-            Log.w("YoukiDex", "Sound file not found or not readable: $filePath")
+            Log.w("DevDex", "Sound file not found or not readable: $filePath")
             return
         }
 
@@ -296,7 +353,7 @@ object DeviceUtils {
                     }
 
                     setOnErrorListener { player, what, extra ->
-                        Log.e("YoukiDex", "MediaPlayer error [$event]: what=$what extra=$extra")
+                        Log.e("DevDex", "MediaPlayer error [$event]: what=$what extra=$extra")
                         activePlayers.remove(player)
                         player.release()
                         true
@@ -311,12 +368,12 @@ object DeviceUtils {
                 // and no listener had fired yet to remove and release it — it
                 // stayed hanging in memory forever. Every failed sound = a
                 // permanently leaked MediaPlayer instance.
-                Log.e("YoukiDex", "playEventSound setup failed [$event]: ${setupError.message}")
+                Log.e("DevDex", "playEventSound setup failed [$event]: ${setupError.message}")
                 activePlayers.remove(mp)
                 try { mp.release() } catch (_: Exception) {}
             }
         } catch (e: Exception) {
-            Log.e("YoukiDex", "playEventSound failed [$event]: ${e.message}")
+            Log.e("DevDex", "playEventSound failed [$event]: ${e.message}")
         }
     }
 
@@ -325,7 +382,7 @@ object DeviceUtils {
             Settings.System.putString(context.contentResolver, key, value)
             true
         } catch (e: SecurityException) {
-            Log.e("YoukiDex", "putSystemSetting failed [$key]: ${e.message}")
+            Log.e("DevDex", "putSystemSetting failed [$key]: ${e.message}")
             false
         } catch (e: IllegalArgumentException) {
             // Fix for full app crash: modern Android rejects any key not on the
@@ -335,7 +392,7 @@ object DeviceUtils {
             // catch, any call with a disallowed key used to crash the entire
             // app instead of failing silently in a way the caller could handle
             // (e.g. by showing the user a message).
-            Log.e("YoukiDex", "putSystemSetting rejected [$key]: ${e.message}")
+            Log.e("DevDex", "putSystemSetting rejected [$key]: ${e.message}")
             false
         }
     }

@@ -50,6 +50,55 @@ class AdvancedPreferences : PreferenceFragmentCompat() {
             AppUtils.openSystemSettings(requireContext(), Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             true
         }
+
+        findPreference<SwitchPreferenceCompat>("experimental_freeform_compatibility")
+            ?.setOnPreferenceChangeListener { _, newValue ->
+                val enabled = newValue as Boolean
+                val context = requireContext()
+                val applied = AppUtils.setExperimentalFreeformCompatibility(context, enabled)
+                if (!applied) {
+                    if (enabled) {
+                        try { com.youki.dex.utils.ShizukoManager.getInstance(context).requestPermission() } catch (e: Exception) {}
+                    }
+                    MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.experimental_freeform_permission_title)
+                        .setMessage(R.string.experimental_freeform_permission_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    false
+                } else {
+                    MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.experimental_freeform_reboot_title)
+                        .setMessage(if (enabled) R.string.experimental_freeform_reboot_message else R.string.experimental_freeform_disabled_reboot_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    true
+                }
+            }
+
+        findPreference<SwitchPreferenceCompat>("ignore_orientation_requests")
+            ?.setOnPreferenceChangeListener { _, newValue ->
+                val enabled = newValue as Boolean
+                val context = requireContext()
+                if (!AppUtils.setIgnoreOrientationRequests(context, enabled)) {
+                    if (enabled) {
+                        try { com.youki.dex.utils.ShizukoManager.getInstance(context).requestPermission() } catch (e: Exception) {}
+                    }
+                    MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.orientation_override_unavailable_title)
+                        .setMessage(R.string.orientation_override_unavailable_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    false
+                } else {
+                    MaterialAlertDialogBuilder(context)
+                        .setTitle(R.string.orientation_override_applied_title)
+                        .setMessage(if (enabled) R.string.orientation_override_applied_message else R.string.orientation_override_restored_message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    true
+                }
+            }
         val preferLastDisplay = findPreference<Preference>("prefer_last_display")
         preferLastDisplay!!.isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
         var hasWriteSettingsPermission = DeviceUtils.hasWriteSettingsPermission(requireContext())
@@ -147,7 +196,7 @@ class AdvancedPreferences : PreferenceFragmentCompat() {
                     Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                         .setType("*/*").putExtra(
                             Intent.EXTRA_TITLE,
-                            requireContext().packageName + "_backup_" + Utils.currentDateString + ".sdp"
+                            "DevDex_settings_backup_" + Utils.currentDateString + ".json"
                         ),
                     SAVE_REQUEST_CODE
                 )

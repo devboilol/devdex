@@ -117,6 +117,29 @@
 
 
     <PreferenceCategory
+        android:key="multitasking_compatibility_category"
+        android:title="@string/multitasking_compatibility_category">
+
+        <SwitchPreferenceCompat
+            android:key="experimental_freeform_compatibility"
+            android:defaultValue="false"
+            android:title="@string/experimental_freeform_title"
+            android:summary="@string/experimental_freeform_summary" />
+
+        <SwitchPreferenceCompat
+            android:key="ignore_orientation_requests"
+            android:defaultValue="false"
+            android:title="@string/ignore_orientation_requests_title"
+            android:summary="@string/ignore_orientation_requests_summary" />
+
+        <SwitchPreferenceCompat
+            android:key="experimental_desktop_widgets"
+            android:defaultValue="false"
+            android:title="@string/experimental_desktop_widgets_title"
+            android:summary="@string/experimental_desktop_widgets_summary" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="root_category"
         android:title="@string/root_required">
 
@@ -145,11 +168,6 @@
             android:title="@string/disable_taskbar_title"
             app:isPreferenceVisible="false" />
 
-        <SwitchPreferenceCompat
-            android:key="hide_status_bar"
-            android:summary="@string/hide_status_bar_summary"
-            android:title="@string/hide_status_bar_title"
-            android:defaultValue="false" />
         <SwitchPreferenceCompat
             android:key="hide_nav_buttons"
             android:summary="@string/hide_nav_buttons_summary"

@@ -1,9 +1,11 @@
 package com.youki.dex.activities
 
 import android.annotation.SuppressLint
+import android.app.admin.DevicePolicyManager
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,6 +13,7 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -23,10 +26,12 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import com.google.android.material.button.MaterialButton
+import com.youki.dex.DeviceAdminReceiver
 import com.youki.dex.R
 import com.youki.dex.models.App
 import com.youki.dex.services.ACTION_LAUNCH_APP
@@ -56,14 +61,8 @@ const val LAUNCHER_PAUSED  = "launcher_paused"
  */
 open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
-    companion object {
-        /**
-         * Kill switch for desktop widgets. Flip to true once the AppWidgetHost
-         * crashes (duplicate restored view IDs, NPE on stopListening, and the
-         * "only the first widget added actually works" bug) are fixed and verified.
-         */
-        const val WIDGETS_ENABLED = false
-    }
+    private fun areDesktopWidgetsEnabled(): Boolean =
+        prefs.getBoolean("experimental_desktop_widgets", false)
 
     private lateinit var backgroundLayout: FrameLayout
     private lateinit var desktopContainer: FrameLayout
@@ -72,14 +71,12 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     private var dockServiceReceiver: BroadcastReceiver? = null
     private var bgTouchX = 0f
     private var bgTouchY = 0f
+    private lateinit var desktopGestureDetector: GestureDetector
 
-    // ── Widget support ────────────────────────────────────────────────────────
-    // TEMPORARILY DISABLED: widgets caused repeated crashes (duplicate view IDs on
-    // restore + NPE in AppWidgetHost.stopListening, plus only-first-widget-works
-    // bug). Set WIDGETS_ENABLED = true to restore the feature once the underlying
-    // AppWidgetHost lifecycle/id issues are fixed. All call sites are guarded by
-    // this flag so re-enabling is a one-line change.
+    // Widgets remain opt-in until exercised on real devices.
     private var widgetManager: DesktopWidgetManager? = null
+    private var activityStarted = false
+    private var desktopInitialLayoutComplete = false
     /** Holds the host ID allocated for the widget being picked/configured. */
     private var pendingWidgetHostId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
 
@@ -128,32 +125,54 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         prefs = PreferenceManager.getDefaultSharedPreferences(this)
         prefs.registerOnSharedPreferenceChangeListener(this)
 
-        if (WIDGETS_ENABLED) widgetManager = DesktopWidgetManager(this)
+        widgetManager = DesktopWidgetManager(this)
 
         setContentView(R.layout.activity_launcher)
         backgroundLayout = findViewById(R.id.ll_background)
         desktopContainer  = findViewById(R.id.desktop_icons_container)
         serviceBtn        = findViewById(R.id.service_btn)
 
-        // GitHub issue #21: hiding the status/nav bar was unconditional —
-        // no way to opt out. "hide_system_bars" defaults to true so
-        // existing users see no behavior change; unchecking it in
-        // preferences_appearance.xml skips the hide entirely, keeping both
-        // bars visible and letting the desktop layout use its normal
-        // (non-fullscreen) inset handling instead.
-        if (prefs.getBoolean("hide_system_bars", true)) hideSystemBars()
+        // Respect the actual Appearance preference. Status bar hiding is opt-in
+        // and does not hide the navigation bar.
+        applyStatusBarVisibility()
         applyDockPadding()
         applyStatusBarInsetHandling()
 
-        serviceBtn.setOnClickListener { startActivity(Intent(this, MainActivity::class.java)) }
+        serviceBtn.setOnClickListener { openSettingsScreen() }
 
+        desktopGestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (!prefs.getBoolean("desktop_double_tap_to_sleep", true)) return false
+                lockScreenFromDesktop()
+                return true
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                // When gesture detection owns the touch sequence, View's
+                // normal long-click listener doesn't receive it. Preserve the
+                // desktop context menu through GestureDetector instead.
+                if (prefs.getBoolean("desktop_double_tap_to_sleep", true)) {
+                    showDesktopEmptySpaceMenu(e.x, e.y)
+                }
+            }
+        })
         backgroundLayout.setOnLongClickListener {
+            // Fallback path while gestures are disabled.
             showDesktopEmptySpaceMenu(bgTouchX, bgTouchY)
             true
         }
         backgroundLayout.setOnTouchListener { _, event ->
             bgTouchX = event.x; bgTouchY = event.y
-            false
+            if (prefs.getBoolean("desktop_double_tap_to_sleep", true)) {
+                desktopGestureDetector.onTouchEvent(event)
+                // Must consume DOWN through UP, otherwise Android can drop
+                // the remaining events before GestureDetector sees a double-tap.
+                true
+            } else {
+                false
+            }
         }
 
         registerReceivers()
@@ -161,6 +180,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         desktopContainer.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 desktopContainer.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                desktopInitialLayoutComplete = true
                 loadDesktopApps()
             }
         })
@@ -168,12 +188,17 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
 
     override fun onStart() {
         super.onStart()
-        if (WIDGETS_ENABLED) widgetManager?.start()
+        activityStarted = true
+        if (areDesktopWidgetsEnabled()) widgetManager?.start()
+        // The initial global-layout callback handles first launch. Once the desktop
+        // has settled, rebuild when returning from Settings, including after disabling widgets.
+        if (desktopInitialLayoutComplete) loadDesktopApps()
     }
 
     override fun onStop() {
         super.onStop()
-        if (WIDGETS_ENABLED) widgetManager?.stop()
+        activityStarted = false
+        widgetManager?.stop()
     }
 
     private fun routeToAccessibilitySettings() {
@@ -189,6 +214,40 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             .setNegativeButton(getString(R.string.cancel), null)
             .setCancelable(true)
             .show()
+    }
+
+    private fun lockScreenFromDesktop() {
+        // Device-admin is the most direct path when the user has already enabled it.
+        try {
+            val manager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            if (manager.isAdminActive(ComponentName(this, DeviceAdminReceiver::class.java))) {
+                manager.lockNow()
+                return
+            }
+        } catch (_: Exception) {}
+
+        // Otherwise, delegate to the active DevDex accessibility service. This
+        // does not need Device Admin, only the service the desktop already uses.
+        if (com.youki.dex.utils.DeviceUtils.isAccessibilityServiceEnabled(this)) {
+            sendBroadcast(
+                Intent(DOCK_SERVICE_ACTION)
+                    .setPackage(packageName)
+                    .putExtra("action", "lock_screen")
+            )
+        } else {
+            Toast.makeText(this, R.string.double_tap_sleep_requires_service, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openSettingsScreen() {
+        // Settings must open as a normal, visible Activity. Do not route it through
+        // DockService.launchApp("standard"), which intentionally requests a freeform
+        // window and can leave Settings appearing empty on devices without reliable
+        // freeform support.
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        )
     }
 
     override fun onResume() {
@@ -219,12 +278,20 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         super.onDestroy()
         prefs.unregisterOnSharedPreferenceChangeListener(this)
         try { dockServiceReceiver?.let { unregisterReceiver(it) } } catch (e: Exception) {}
-        if (WIDGETS_ENABLED) widgetManager?.release()
+        widgetManager?.release()
     }
 
     override fun onSharedPreferenceChanged(sp: SharedPreferences, key: String?) {
         if (key == "dock_height") applyDockPadding()
         if (key == "single_line_labels") loadDesktopApps()
+        if (key == "hide_status_bar") applyStatusBarVisibility()
+        if (key == "experimental_desktop_widgets") {
+            if (areDesktopWidgetsEnabled() && activityStarted) widgetManager?.start()
+            else widgetManager?.stop()
+            // Preferences can change while this Activity is behind Settings. Defer
+            // rebuilding until onStart rather than creating host views while invisible.
+            if (activityStarted && desktopInitialLayoutComplete) loadDesktopApps()
+        }
     }
 
     // ── Widget picker result ─────────────────────────────────────────────────
@@ -232,8 +299,20 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     @Deprecated("Using deprecated onActivityResult for AppWidget compat")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (!WIDGETS_ENABLED) return
-        val widgetManager = widgetManager ?: return
+        val widgetManager = widgetManager
+        if (!areDesktopWidgetsEnabled()) {
+            // Settings may disable widgets while the system picker is still open.
+            // Release the pending ID instead of leaking it in AppWidgetService.
+            if (pendingWidgetHostId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                widgetManager?.deleteWidgetId(pendingWidgetHostId)
+            }
+            pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
+        if (widgetManager == null) {
+            pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
         if (resultCode != RESULT_OK) {
             // User cancelled — free the allocated host ID.
             if (pendingWidgetHostId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -247,7 +326,13 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             DesktopWidgetManager.REQUEST_PICK_WIDGET -> {
                 val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,
                     AppWidgetManager.INVALID_APPWIDGET_ID) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-                if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+                if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    if (pendingWidgetHostId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                        widgetManager.deleteWidgetId(pendingWidgetHostId)
+                    }
+                    pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+                    return
+                }
 
                 pendingWidgetHostId = appWidgetId
                 val info = widgetManager.manager.getAppWidgetInfo(appWidgetId)
@@ -257,8 +342,14 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
                         component = info.configure
                         putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     }
-                    @Suppress("DEPRECATION")
-                    startActivityForResult(configIntent, DesktopWidgetManager.REQUEST_CREATE_WIDGET)
+                    try {
+                        @Suppress("DEPRECATION")
+                        startActivityForResult(configIntent, DesktopWidgetManager.REQUEST_CREATE_WIDGET)
+                    } catch (e: Exception) {
+                        widgetManager.deleteWidgetId(appWidgetId)
+                        pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+                        Toast.makeText(this, R.string.desktop_widgets_picker_unavailable, Toast.LENGTH_LONG).show()
+                    }
                 } else {
                     // No configuration needed — add directly.
                     addWidgetToDesktop(appWidgetId)
@@ -333,6 +424,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     // ─────────────────────────────────────────────────────────────────────────
 
     fun loadDesktopApps() {
+        widgetManager?.clearManagedViews()
         desktopContainer.removeAllViews()
         val iconSize = iconSizePx()
         val g = getGridSize()
@@ -354,8 +446,8 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             addAppIcon(app, pos.first, pos.second)
         }
 
-        // 2. Widgets (temporarily disabled — see WIDGETS_ENABLED)
-        if (WIDGETS_ENABLED) {
+        // 2. Widgets (temporarily disabled — see areDesktopWidgetsEnabled())
+        if (areDesktopWidgetsEnabled()) {
             val widgetManager = widgetManager
             if (widgetManager != null) {
                 DesktopWidgetManager.getSavedWidgetIds(this).forEach { idStr ->
@@ -409,12 +501,22 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
      * Places the widget at the first available grid rect of the appropriate span.
      */
     private fun addWidgetToDesktop(hostId: Int) {
-        if (!WIDGETS_ENABLED) return
+        if (!areDesktopWidgetsEnabled()) {
+            widgetManager?.deleteWidgetId(hostId)
+            return
+        }
         val widgetManager = widgetManager ?: return
-        val info = widgetManager.getInfo(hostId) ?: return
+        val info = widgetManager.getInfo(hostId) ?: run {
+            widgetManager.deleteWidgetId(hostId)
+            return
+        }
         val g = getGridSize()
-        val colSpan = (info.minWidth  / g.coerceAtLeast(1)).coerceAtLeast(1)
-        val rowSpan = (info.minHeight / g.coerceAtLeast(1)).coerceAtLeast(1)
+        // Provider dimensions are dp; convert the actual desktop grid cell to dp
+        // so the widget span stays consistent across display densities.
+        val density = resources.displayMetrics.density.coerceAtLeast(0.1f)
+        val cellDp = (g / density).toInt().coerceAtLeast(1)
+        val colSpan = ((info.minWidth + cellDp - 1) / cellDp).coerceAtLeast(1)
+        val rowSpan = ((info.minHeight + cellDp - 1) / cellDp).coerceAtLeast(1)
 
         val occupied = (0 until desktopContainer.childCount).mapNotNull { i ->
             val lp = desktopContainer.getChildAt(i).layoutParams as? FrameLayout.LayoutParams
@@ -429,7 +531,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     /** Inflates the AppWidgetHostView and adds it to the desktop container. */
     @SuppressLint("ClickableViewAccessibility")
     private fun addWidgetView(hostId: Int, startX: Int, startY: Int, colSpan: Int, rowSpan: Int) {
-        if (!WIDGETS_ENABLED) return
+        if (!areDesktopWidgetsEnabled()) return
         val widgetManager = widgetManager ?: return
         val g = getGridSize()
         val widthPx  = g * colSpan
@@ -445,6 +547,8 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         val lp = FrameLayout.LayoutParams(widthPx, heightPx).apply {
             leftMargin = startX; topMargin = startY
         }
+        hostView.isSaveEnabled = false
+        hostView.isSaveFromParentEnabled = false
         hostView.layoutParams = lp
 
         wireDrag(hostView) { freeX, freeY ->
@@ -549,7 +653,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     }
 
     private fun showWidgetContextMenu(hostId: Int, anchor: View) {
-        if (!WIDGETS_ENABLED) return
+        if (!areDesktopWidgetsEnabled()) return
         val widgetManager = widgetManager ?: return
         val popup = PopupMenu(this, anchor)
         popup.menu.add(0, 1, 0, getString(R.string.remove_from_desktop))
@@ -572,8 +676,8 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         val wallpaperId = 1; val displayId = 2; val addWidgetId = 3
         popup.menu.add(0, wallpaperId,  0, getString(R.string.change_wallpaper))
         popup.menu.add(0, displayId,    0, getString(R.string.display_settings))
-        // Widgets temporarily disabled — entry hidden from the menu (see WIDGETS_ENABLED).
-        if (WIDGETS_ENABLED) popup.menu.add(0, addWidgetId, 0, getString(R.string.add_widget))
+        // Widgets temporarily disabled — entry hidden from the menu (see areDesktopWidgetsEnabled()).
+        if (areDesktopWidgetsEnabled()) popup.menu.add(0, addWidgetId, 0, getString(R.string.add_widget))
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 wallpaperId -> startActivity(
@@ -581,7 +685,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
                 displayId  -> AppUtils.openSystemSettings(this, Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS))
-                addWidgetId -> if (WIDGETS_ENABLED) launchWidgetPicker()
+                addWidgetId -> if (areDesktopWidgetsEnabled()) launchWidgetPicker()
             }
             true
         }
@@ -592,14 +696,20 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     /** Opens the system widget picker. */
     @Suppress("DEPRECATION")
     private fun launchWidgetPicker() {
-        if (!WIDGETS_ENABLED) return
+        if (!areDesktopWidgetsEnabled()) return
         val widgetManager = widgetManager ?: return
         val hostId = widgetManager.allocateWidgetId()
         pendingWidgetHostId = hostId
         val pickIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, hostId)
         }
-        startActivityForResult(pickIntent, DesktopWidgetManager.REQUEST_PICK_WIDGET)
+        try {
+            startActivityForResult(pickIntent, DesktopWidgetManager.REQUEST_PICK_WIDGET)
+        } catch (e: Exception) {
+            widgetManager.deleteWidgetId(hostId)
+            pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+            Toast.makeText(this, R.string.desktop_widgets_picker_unavailable, Toast.LENGTH_LONG).show()
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -612,19 +722,10 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         desktopContainer.setPadding(desktopContainer.paddingLeft, desktopContainer.paddingTop, desktopContainer.paddingRight, dockHeightPx)
     }
 
-    // Patched: "الاج تو اج ... تغطي على الشاشة" — status bar overlapping desktop
-    // content. hideSystemBars() hides the status bar by default, but
-    // BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE means the user can still pull it
-    // back in with a swipe from the top (this is desktop/DEX mode — that's
-    // the only way to reach the time/notifications, so it has to stay
-    // reachable). When it's showing, it draws as a real overlay on top of
-    // whatever's there — nothing reserved space for it, so it visually
-    // covered the top row of desktop icons instead of them shifting down
-    // out of the way. This listener keeps the desktop container's top
-    // padding in sync with the current systemBars() inset live: 0 while
-    // the bar is hidden (content uses the full screen, the DEX-mode norm),
-    // and the bar's real height the instant a swipe reveals it — no fixed
-    // guess baked in, since transient-bar height/behavior can vary by OEM.
+    // Keep the desktop content below the status bar when it is visible or temporarily
+    // revealed by a swipe. The hide_status_bar preference is opt-in; navigation remains
+    // immersive as in the original desktop mode. Insets are live because transient-bar
+    // heights and cutout behavior vary between OEMs.
     private fun applyStatusBarInsetHandling() {
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(desktopContainer) { view, insets ->
             val topInset = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
@@ -667,44 +768,36 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     }
 
     @SuppressLint("NewApi")
-    private fun hideSystemBars() {
-        // Previously broken (content not extending under the display cutout/notch — "الحواف
-        // الممنوعة"): two separate problems here.
-        //   1. LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES only allows content
-        //      to extend into the cutout on the SHORT edge — with
-        //      lock_landscape on (the default), the cutout usually sits on
-        //      what is now a LONG edge, so SHORT_EDGES leaves it reserved
-        //      and the system draws black bars / the app avoids it there.
-        //      LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS draws under the cutout
-        //      in every orientation, no exceptions.
-        //   2. The whole edge-to-edge branch was gated on API 30 (R)+, but
-        //      layoutInDisplayCutoutMode (and ALWAYS specifically) has been
-        //      available since API 28 (P) — on P/Q devices this code fell
-        //      through to the old SYSTEM_UI_FLAG_* branch below, which never
-        //      touches layoutInDisplayCutoutMode at all, so the cutout area
-        //      stayed reserved by the system regardless of the fullscreen
-        //      flags. Lowering the gate to P closes that gap.
+    private fun applyStatusBarVisibility() {
+        // Keep edge-to-edge/cutout support, but only hide the status bar when the
+        // explicit user preference is enabled. The navigation bar remains visible.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes = window.attributes.also {
                 it.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
         }
+
+        val hideStatusBar = prefs.getBoolean("hide_status_bar", false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
             window.insetsController?.apply {
-                hide(WindowInsets.Type.systemBars())
                 systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                // Keep the desktop's navigation bar immersive as before. Only the status
+                // bar follows the Appearance toggle; both bars can reappear temporarily by swipe.
+                hide(WindowInsets.Type.navigationBars())
+                if (hideStatusBar) hide(WindowInsets.Type.statusBars())
+                else show(WindowInsets.Type.statusBars())
             }
         } else {
             @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            )
+            val layoutFlags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            @Suppress("DEPRECATION")
+            val immersiveFlags = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            @Suppress("DEPRECATION")
+            val statusFlags = if (hideStatusBar) View.SYSTEM_UI_FLAG_FULLSCREEN else 0
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = layoutFlags or immersiveFlags or statusFlags
         }
     }
 
