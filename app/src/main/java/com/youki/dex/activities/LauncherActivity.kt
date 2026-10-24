@@ -76,6 +76,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     // Widgets remain opt-in until exercised on real devices.
     private var widgetManager: DesktopWidgetManager? = null
     private var activityStarted = false
+    private var desktopInitialLayoutComplete = false
     /** Holds the host ID allocated for the widget being picked/configured. */
     private var pendingWidgetHostId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
 
@@ -131,13 +132,9 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         desktopContainer  = findViewById(R.id.desktop_icons_container)
         serviceBtn        = findViewById(R.id.service_btn)
 
-        // GitHub issue #21: hiding the status/nav bar was unconditional —
-        // no way to opt out. "hide_system_bars" defaults to true so
-        // existing users see no behavior change; unchecking it in
-        // preferences_appearance.xml skips the hide entirely, keeping both
-        // bars visible and letting the desktop layout use its normal
-        // (non-fullscreen) inset handling instead.
-        if (prefs.getBoolean("hide_system_bars", true)) hideSystemBars()
+        // Respect the actual Appearance preference. Status bar hiding is opt-in
+        // and does not hide the navigation bar.
+        applyStatusBarVisibility()
         applyDockPadding()
         applyStatusBarInsetHandling()
 
@@ -183,6 +180,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         desktopContainer.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 desktopContainer.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                desktopInitialLayoutComplete = true
                 loadDesktopApps()
             }
         })
@@ -193,7 +191,9 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         activityStarted = true
         if (areDesktopWidgetsEnabled()) {
             widgetManager?.start()
-            if (::desktopContainer.isInitialized) loadDesktopApps()
+            // The initial global-layout callback handles first launch. Once the
+            // desktop has settled, rebuild widget views when returning from Settings.
+            if (desktopInitialLayoutComplete) loadDesktopApps()
         }
     }
 
@@ -286,6 +286,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     override fun onSharedPreferenceChanged(sp: SharedPreferences, key: String?) {
         if (key == "dock_height") applyDockPadding()
         if (key == "single_line_labels") loadDesktopApps()
+        if (key == "hide_status_bar") applyStatusBarVisibility()
         if (key == "experimental_desktop_widgets") {
             if (areDesktopWidgetsEnabled() && activityStarted) widgetManager?.start()
             else widgetManager?.stop()
@@ -298,8 +299,20 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     @Deprecated("Using deprecated onActivityResult for AppWidget compat")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (!areDesktopWidgetsEnabled()) return
-        val widgetManager = widgetManager ?: return
+        val widgetManager = widgetManager
+        if (!areDesktopWidgetsEnabled()) {
+            // Settings may disable widgets while the system picker is still open.
+            // Release the pending ID instead of leaking it in AppWidgetService.
+            if (pendingWidgetHostId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                widgetManager?.deleteWidgetId(pendingWidgetHostId)
+            }
+            pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
+        if (widgetManager == null) {
+            pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+            return
+        }
         if (resultCode != RESULT_OK) {
             // User cancelled — free the allocated host ID.
             if (pendingWidgetHostId != AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -313,7 +326,13 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             DesktopWidgetManager.REQUEST_PICK_WIDGET -> {
                 val appWidgetId = data?.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID,
                     AppWidgetManager.INVALID_APPWIDGET_ID) ?: AppWidgetManager.INVALID_APPWIDGET_ID
-                if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return
+                if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    if (pendingWidgetHostId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                        widgetManager.deleteWidgetId(pendingWidgetHostId)
+                    }
+                    pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+                    return
+                }
 
                 pendingWidgetHostId = appWidgetId
                 val info = widgetManager.manager.getAppWidgetInfo(appWidgetId)
@@ -323,8 +342,14 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
                         component = info.configure
                         putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                     }
-                    @Suppress("DEPRECATION")
-                    startActivityForResult(configIntent, DesktopWidgetManager.REQUEST_CREATE_WIDGET)
+                    try {
+                        @Suppress("DEPRECATION")
+                        startActivityForResult(configIntent, DesktopWidgetManager.REQUEST_CREATE_WIDGET)
+                    } catch (e: Exception) {
+                        widgetManager.deleteWidgetId(appWidgetId)
+                        pendingWidgetHostId = AppWidgetManager.INVALID_APPWIDGET_ID
+                        Toast.makeText(this, R.string.desktop_widgets_picker_unavailable, Toast.LENGTH_LONG).show()
+                    }
                 } else {
                     // No configuration needed — add directly.
                     addWidgetToDesktop(appWidgetId)
@@ -486,8 +511,10 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             return
         }
         val g = getGridSize()
-        // Provider dimensions are dp while the desktop grid size is pixels.
-        val cellDp = 85
+        // Provider dimensions are dp; convert the actual desktop grid cell to dp
+        // so the widget span stays consistent across display densities.
+        val density = resources.displayMetrics.density.coerceAtLeast(0.1f)
+        val cellDp = (g / density).toInt().coerceAtLeast(1)
         val colSpan = ((info.minWidth + cellDp - 1) / cellDp).coerceAtLeast(1)
         val rowSpan = ((info.minHeight + cellDp - 1) / cellDp).coerceAtLeast(1)
 
@@ -750,43 +777,34 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     }
 
     @SuppressLint("NewApi")
-    private fun hideSystemBars() {
-        // Previously broken (content not extending under the display cutout/notch — "الحواف
-        // الممنوعة"): two separate problems here.
-        //   1. LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES only allows content
-        //      to extend into the cutout on the SHORT edge — with
-        //      lock_landscape on (the default), the cutout usually sits on
-        //      what is now a LONG edge, so SHORT_EDGES leaves it reserved
-        //      and the system draws black bars / the app avoids it there.
-        //      LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS draws under the cutout
-        //      in every orientation, no exceptions.
-        //   2. The whole edge-to-edge branch was gated on API 30 (R)+, but
-        //      layoutInDisplayCutoutMode (and ALWAYS specifically) has been
-        //      available since API 28 (P) — on P/Q devices this code fell
-        //      through to the old SYSTEM_UI_FLAG_* branch below, which never
-        //      touches layoutInDisplayCutoutMode at all, so the cutout area
-        //      stayed reserved by the system regardless of the fullscreen
-        //      flags. Lowering the gate to P closes that gap.
+    private fun applyStatusBarVisibility() {
+        // Keep edge-to-edge/cutout support, but only hide the status bar when the
+        // explicit user preference is enabled. The navigation bar remains visible.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes = window.attributes.also {
                 it.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             }
         }
+
+        val hideStatusBar = prefs.getBoolean("hide_status_bar", false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
             window.insetsController?.apply {
-                hide(WindowInsets.Type.systemBars())
                 systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                if (hideStatusBar) hide(WindowInsets.Type.statusBars())
+                else show(WindowInsets.Type.statusBars())
+                show(WindowInsets.Type.navigationBars())
             }
         } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                if (hideStatusBar) {
+                    View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                } else {
+                    View.SYSTEM_UI_FLAG_VISIBLE
+                }
             )
         }
     }
