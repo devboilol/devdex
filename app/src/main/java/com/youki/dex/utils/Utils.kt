@@ -190,56 +190,102 @@ object Utils {
     // Gap 35: still blocking — must be called from an IO thread in AdvancedPreferences
     fun backupPreferences(context: Context, backupUri: Uri) {
         val allPrefs = PreferenceManager.getDefaultSharedPreferences(context).all
-        val sb = StringBuilder()
-        for ((key, value) in allPrefs) {
-            if (value is Set<*>) continue  // we skip Set<String> — it complicates the format
-            if (value.toString().contains("://")) continue
-            val type = when (value) {
-                is Boolean -> "boolean"
-                is Int     -> "integer"
-                is Float   -> "float"
-                is Long    -> "long"
-                else       -> "string"
+        val root = org.json.JSONObject()
+        root.put("format", "devdex-settings")
+        root.put("version", 1)
+        root.put("exportedAt", System.currentTimeMillis())
+        val entries = org.json.JSONArray()
+        allPrefs.forEach { (key, value) ->
+            val entry = org.json.JSONObject().put("key", key)
+            when (value) {
+                is Boolean -> entry.put("type", "boolean").put("value", value)
+                is Int -> entry.put("type", "integer").put("value", value)
+                is Long -> entry.put("type", "long").put("value", value)
+                is Float -> entry.put("type", "float").put("value", value.toDouble())
+                is String -> entry.put("type", "string").put("value", value)
+                is Set<*> -> {
+                    val values = org.json.JSONArray()
+                    value.filterIsInstance<String>().forEach { values.put(it) }
+                    entry.put("type", "string_set").put("value", values)
+                }
+                else -> return@forEach
             }
-            // Gap 36: we use ||| as a delimiter instead of space to avoid cutting off values that contain spaces
-            sb.append("$type|||$key|||$value\n")
+            entries.put(entry)
         }
+        root.put("preferences", entries)
         try {
             context.contentResolver.openOutputStream(backupUri)?.use { os ->
-                OutputStreamWriter(os, Charsets.UTF_8).use { it.write(sb.toString().trim()) }
+                os.write(root.toString(2).toByteArray(Charsets.UTF_8))
             }
             Toast.makeText(context, R.string.preferences_saved, Toast.LENGTH_SHORT).show()
-        } catch (e: IOException) { e.printStackTrace() }
+        } catch (e: IOException) {
+            android.util.Log.e("DevDexBackup", "Could not export settings", e)
+            Toast.makeText(context, R.string.preferences_saved, Toast.LENGTH_SHORT).show()
+        }
     }
 
-    // Gap 36: restorePreferences supports values with spaces
-    // Gap 43: supports float and long
+    /** Restores current JSON backups and legacy .sdp line-based backups. */
     fun restorePreferences(context: Context, restoreUri: Uri) {
         try {
-            context.contentResolver.openInputStream(restoreUri)?.use { inputStream ->
-                val lines = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).readLines()
-                PreferenceManager.getDefaultSharedPreferences(context).edit {
-                    lines.forEach { line ->
-                        val parts = line.split("|||")
-                        if (parts.size >= 3) {
-                            val type  = parts[0]
-                            val key   = parts[1]
-                            val value = parts.drop(2).joinToString("|||") // the value might rarely contain |||
-                            try {
-                                when (type) {
-                                    "boolean" -> putBoolean(key, value.toBoolean())
-                                    "integer" -> putInt(key, value.toInt())
-                                    "float"   -> putFloat(key, value.toFloat())
-                                    "long"    -> putLong(key, value.toLong())
-                                    else      -> putString(key, value)
-                                }
-                            } catch (e: Exception) { putString(key, value) }
+            val text = context.contentResolver.openInputStream(restoreUri)?.use {
+                it.bufferedReader(Charsets.UTF_8).readText()
+            } ?: return
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            if (text.trimStart().startsWith("{")) {
+                val root = org.json.JSONObject(text)
+                require(root.optString("format") == "devdex-settings") { "Not a DevDex settings backup" }
+                val entries = root.optJSONArray("preferences") ?: org.json.JSONArray()
+                prefs.edit {
+                    for (i in 0 until entries.length()) {
+                        val entry = entries.optJSONObject(i) ?: continue
+                        val key = entry.optString("key")
+                        if (key.isBlank()) continue
+                        val value = entry.opt("value")
+                        when (entry.optString("type")) {
+                            "boolean" -> putBoolean(key, value as? Boolean ?: continue)
+                            "integer" -> putInt(key, (value as? Number)?.toInt() ?: continue)
+                            "long" -> putLong(key, (value as? Number)?.toLong() ?: continue)
+                            "float" -> putFloat(key, (value as? Number)?.toFloat() ?: continue)
+                            "string" -> putString(key, value?.takeUnless { it == org.json.JSONObject.NULL }?.toString() ?: "")
+                            "string_set" -> {
+                                val array = value as? org.json.JSONArray ?: continue
+                                putStringSet(key, (0 until array.length()).mapNotNull { array.optString(it, null) }.toSet())
+                            }
                         }
                     }
                 }
-                Toast.makeText(context, R.string.preferences_restored, Toast.LENGTH_SHORT).show()
+            } else {
+                // Backward compatibility for the previous .sdp format.
+                prefs.edit {
+                    text.lineSequence().forEach { line ->
+                        val parts = line.split("|||")
+                        if (parts.size < 3) return@forEach
+                        val type = parts[0]
+                        val key = parts[1]
+                        val value = parts.drop(2).joinToString("|||")
+                        try {
+                            when (type) {
+                                "boolean" -> putBoolean(key, value.toBoolean())
+                                "integer" -> putInt(key, value.toInt())
+                                "float" -> putFloat(key, value.toFloat())
+                                "long" -> putLong(key, value.toLong())
+                                "string_set" -> {
+                                    val array = org.json.JSONArray(value)
+                                    putStringSet(key, (0 until array.length()).map { array.getString(it) }.toSet())
+                                }
+                                else -> putString(key, value)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.w("DevDexBackup", "Skipped invalid preference: $key", e)
+                        }
+                    }
+                }
             }
-        } catch (e: IOException) { e.printStackTrace() }
+            Toast.makeText(context, R.string.preferences_restored, Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            android.util.Log.e("DevDexBackup", "Could not import settings", e)
+            Toast.makeText(context, "Could not import settings file", Toast.LENGTH_LONG).show()
+        }
     }
 
     // Gap 37: Locale.US to avoid Arabic/Persian numerals in the file name

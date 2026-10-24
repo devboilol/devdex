@@ -8,6 +8,9 @@
     <string name="language_system_default">System default</string>
     <string name="language_english">English</string>
     <string name="language_vietnamese">Tiếng Việt</string>
+    <string name="onboarding_language_label">Choose your language</string>
+    <string name="onboarding_security_warning_title">Use on a secondary device</string>
+    <string name="onboarding_security_warning">DevDex uses powerful accessibility and overlay features and may interfere with banking, government, identity, payment, or other security-sensitive apps. Do not install it on a device you rely on for those services. A spare tablet is recommended. Some apps may block access or refuse to run while desktop overlays are active.</string>
     <string name="multi_user">Users</string>
     <string name="none">None</string>
     <string name="move">Move</string>

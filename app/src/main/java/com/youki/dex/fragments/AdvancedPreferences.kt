@@ -147,7 +147,7 @@ class AdvancedPreferences : PreferenceFragmentCompat() {
                     Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                         .setType("*/*").putExtra(
                             Intent.EXTRA_TITLE,
-                            requireContext().packageName + "_backup_" + Utils.currentDateString + ".sdp"
+                            "DevDex_settings_backup_" + Utils.currentDateString + ".json"
                         ),
                     SAVE_REQUEST_CODE
                 )

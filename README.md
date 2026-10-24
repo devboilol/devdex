@@ -25,15 +25,18 @@
 
 ## What is this?
 
-DevDex turns your phone into something closer to a desktop — a taskbar, an app dock, windows you can resize and move around, hot corners, the whole thing. It runs as an Accessibility Service overlay, so it doesn't have to become your default launcher (though most people end up setting it as one anyway, just so it loads automatically instead of having to open it every time).
+DevDex turns an Android device into a desktop-style environment with a taskbar, app dock, movable/resizable app windows, and desktop shortcuts. It can run as the home launcher or as an on-demand overlay.
 
-A few features — custom display size, freezing background apps, that kind of thing — need Root or Shizuku. Everything else works out of the box.
+A few advanced features — such as custom display settings and certain task/window operations — require Root or Shizuku. Most desktop UI features do not.
+
+> [!WARNING]
+> **Use DevDex on a secondary device, preferably a tablet.** DevDex uses Android Accessibility and overlay capabilities and may interfere with banking, government, identity, payment, enterprise-authentication, or other security-sensitive apps. Some of these apps may block access or refuse to run while overlays or desktop controls are active. Do not rely on DevDex on your primary device for banking, government services, or other critical secure workflows. Review each permission before granting it.
 
 ---
 
 ## About the project
 
-DevDex is an independent continuation of an Android desktop launcher. This fork focuses on reliable app launching, multi-window management, localization, and a consistent desktop-style interface. The original open-source license and upstream attribution are preserved.
+DevDex is an Android desktop environment focused on a Windows 11-inspired first-run layout, reliable app launching, multi-window management, localization, and portable settings backups. All product-facing documentation and interface copy use the DevDex name. Required license notices and upstream attribution remain intact.
 
 ---
 
@@ -48,6 +51,14 @@ DevDex is an independent continuation of an Android desktop launcher. This fork 
 For release notes and version history, check the [GitHub Releases page](https://github.com/devboilol/devdex/releases) — every release has its own detailed changelog.
 
 ---
+
+## First-run experience
+
+- Choose English or Vietnamese during setup.
+- Starts at the desktop with a minimal taskbar, centered app icons, and Windows 11-inspired rounded icon styling.
+- Export and import settings backups from **Settings → Advanced → Backup/Restore Preferences**.
+
+**Device recommendation:** a spare tablet is the best fit. Do not use DevDex on a device that must reliably run banking, government, identity, payment, or work-security apps. Accessibility and overlay features can trigger those apps' security restrictions.
 
 ## Features
 

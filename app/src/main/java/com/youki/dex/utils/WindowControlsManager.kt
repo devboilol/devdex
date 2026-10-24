@@ -21,8 +21,8 @@ import android.widget.Toast
 import com.youki.dex.R
 
 /**
- * WindowControlsManager — Windows-style [ – ] [ □ ] [ × ] buttons for every
- * app window, including fullscreen apps.
+ * WindowControlsManager — compact [ □ ] [ × ] controls for windowed apps.
+ * Fullscreen activities deliberately receive no overlay controls.
  *
  * Why this exists: Android's own freeform caption bar is only drawn by some
  * ROMs / Android 15 desktop mode. On everything else a window had no
@@ -31,11 +31,8 @@ import com.youki.dex.R
  * AccessibilityService window list (flagRetrieveInteractiveWindows is
  * already enabled in accessibility_service.xml).
  *
- *  • close    → `am task remove <id>` (AppUtils.closeTask); if no task id is
- *               known the app is force-stopped through the shell instead
- *  • maximize → AppUtils.resizeTask(..., "maximized") / back to "standard"
- *  • minimize → tries to park the task off-screen; if the ROM blocks task
- *               resizing, falls back to Android Home and restores from the dock.
+ *  • close    → removes the task through AppUtils.closeTask
+ *  • resize   → toggles between maximized and standard window bounds.
  *
  * Preference "window_controls_enabled" (default true) switches it off live.
  * Everything is wrapped defensively: a failure here must never take the
@@ -161,9 +158,13 @@ class WindowControlsManager(
                     if (b.width() <= 0 || b.height() <= 0) continue
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
-                    // Fullscreen apps also get controls, anchored at the
-                    // top center. This uses the same layout in portrait and
-                    // landscape and avoids creating a second special case.
+                    // Fullscreen activities (for example Android Settings) should
+                    // keep a clean screen. A maximized desktop window normally leaves
+                    // room for the taskbar, so it does not meet both thresholds.
+                    if (b.width() >= dispW * 0.94f && b.height() >= dispH * 0.94f) {
+                        seenIds.add(w.id)
+                        continue
+                    }
                     var pkg = pkgCache[w.id]
                     if (pkg == null || !nativeCaptionCache.containsKey(w.id)) {
                         val root = w.root
@@ -367,10 +368,8 @@ class WindowControlsManager(
         }
         val btnW = dp(34)
         val btnH = dp(30)
-        val min = IconButton(ctx, IconButton.MINIMIZE)
         val max = IconButton(ctx, IconButton.MAXIMIZE)
         val close = IconButton(ctx, IconButton.CLOSE)
-        row.addView(min, LinearLayout.LayoutParams(btnW, btnH))
         row.addView(max, LinearLayout.LayoutParams(btnW, btnH))
         row.addView(close, LinearLayout.LayoutParams(btnW, btnH))
 
@@ -389,7 +388,6 @@ class WindowControlsManager(
 
         val pill = Pill(row, lp, max)
 
-        min.setOnClickListener { onMinimize(pill) }
         max.setOnClickListener { onMaximize(pill) }
         close.setOnClickListener { onClose(pill) }
         return pill
