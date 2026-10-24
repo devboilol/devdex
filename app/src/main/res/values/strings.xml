@@ -315,9 +315,9 @@
     <string name="experimental_freeform_title">Enable experimental freeform windows</string>
     <string name="experimental_freeform_summary">For ROMs that hide freeform mode. Uses Android global settings, requires Shizuku or Root, and normally requires a reboot. This is not guaranteed on every manufacturer ROM.</string>
     <string name="experimental_freeform_permission_title">Could not change multitasking settings</string>
-    <string name="experimental_freeform_permission_message">DevDex could not write Android's freeform settings. Make sure Shizuku is running and DevDex is authorized, or grant Root access. If the ROM blocks these settings, freeform windows may not be available.</string>
+    <string name="experimental_freeform_permission_message">DevDex could not write Android\'s freeform settings. Make sure Shizuku is running and DevDex is authorized, or grant Root access. If the ROM blocks these settings, freeform windows may not be available.</string>
     <string name="experimental_freeform_reboot_title">Restart required</string>
-    <string name="experimental_freeform_reboot_message">Android's experimental freeform setting has been enabled. Restart the tablet to let HyperOS apply it. After reboot, DevDex will try to open all compatible apps in separate windows.</string>
+    <string name="experimental_freeform_reboot_message">Android\'s experimental freeform setting has been enabled. Restart the tablet to let HyperOS apply it. After reboot, DevDex will try to open all compatible apps in separate windows.</string>
     <string name="experimental_freeform_disabled_reboot_message">The previous Android multitasking settings have been restored. Restart the tablet to apply the change.</string>
     <string name="experimental_freeform_required">This ROM does not expose freeform windows. Open Settings → Advanced → Multitasking compatibility, enable experimental freeform windows, then restart the tablet.</string>
     <string name="hide_nav_buttons_title">Hide navigation buttons</string>
