@@ -183,7 +183,7 @@ object DeviceUtils {
             if (hide) "immersive.status=*" else ""
         }
 
-        val value: String? = desiredPolicies.ifEmpty { null }
+        val value: String? = if (desiredPolicies.isEmpty()) null else desiredPolicies
         fun isApplied(): Boolean = try {
             android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty() ==
                 desiredPolicies
