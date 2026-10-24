@@ -347,6 +347,33 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     private var prevCpuTotal = 0L
     private var prevCpuIdle = 0L
     private var lastCpuValue = 0
+    /**
+     * One-time migration from the previous desktop-first profile, which wrote all
+     * three navigation buttons as hidden on fresh installs. Do not reset choices
+     * if the user has already selected a navigation style or has a mixed button setup.
+     */
+    private fun migrateLegacyNavigationDefaults() {
+        if (sharedPreferences.getBoolean("devdex_navigation_defaults_v2_applied", false)) return
+
+        val oldFirstRunProfile = sharedPreferences.getBoolean("devdex_first_run_defaults_applied", false)
+        val hasChosenStyle = sharedPreferences.contains("nav_button_style")
+        val allNavigationButtonsHidden =
+            !sharedPreferences.getBoolean("enable_nav_back", true) &&
+            !sharedPreferences.getBoolean("enable_nav_home", true) &&
+            !sharedPreferences.getBoolean("enable_nav_recents", true)
+
+        sharedPreferences.edit {
+            if (oldFirstRunProfile && !hasChosenStyle && allNavigationButtonsHidden) {
+                putBoolean("enable_nav_back", true)
+                putBoolean("enable_nav_home", true)
+                putBoolean("enable_nav_recents", true)
+                putBoolean("enable_nav_assist", true)
+                putString("nav_button_style", "pixel")
+            }
+            putBoolean("devdex_navigation_defaults_v2_applied", true)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         PerfectServer.dock = this  // ✅ سجّل في المنسق
@@ -354,6 +381,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         activityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this)
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
+        migrateLegacyNavigationDefaults()
         secondary = sharedPreferences.getBoolean("prefer_last_display", false)
         context = DeviceUtils.getDisplayContext(this, secondary)
         windowManager = context.getSystemService(WINDOW_SERVICE) as WindowManager

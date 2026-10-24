@@ -38,7 +38,7 @@
         <SwitchPreferenceCompat
             android:key="enable_nav_assist"
             android:title="@string/enable_nav_assist_title"
-            android:defaultValue="false" />
+            android:defaultValue="true" />
     </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/quick_settings">
