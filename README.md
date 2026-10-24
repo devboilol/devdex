@@ -174,7 +174,7 @@ DevDex đang chuẩn bị bản Release Candidate (RC). APK từ CI là bản ki
 
 1. Mở file APK vừa tải trong danh sách tải xuống của trình duyệt hoặc bằng trình quản lý tệp.
 2. Nếu Android chặn cài đặt, làm theo hướng dẫn để mở Cài đặt và bật **Allow from this source / Install unknown apps** cho đúng trình duyệt hoặc trình quản lý tệp đang dùng.
-3. Quay lại APK và tiếp tục cài. Tên mục và giao diện có thể khác nhau theo phiên bản Android và hãng thiết bị. Sau khi cài xong, m có thể tắt lại quyền này.
+3. Quay lại APK và tiếp tục cài. Tên mục và giao diện có thể khác nhau theo phiên bản Android và hãng thiết bị. Sau khi cài xong, bạn có thể tắt lại quyền này.
 
 Chỉ cài APK từ nguồn đáng tin cậy. Đây là bản thử nghiệm sớm.
 
@@ -187,10 +187,10 @@ Chỉ cài APK từ nguồn đáng tin cậy. Đây là bản thử nghiệm s�
 #### 4. Xem lại các quyền được yêu cầu
 
 - **Display over other apps / Appear on top (Hiển thị trên ứng dụng khác):** bật quyền này cho DevDex khi được yêu cầu nếu m muốn lớp phủ desktop, taskbar và điều khiển cửa sổ hoạt động.
-- **Accessibility (Trợ năng):** nếu DevDex hướng dẫn bật dịch vụ Trợ năng, hãy đọc giải thích của Android rồi chỉ bật nếu m cần các tương tác desktop liên quan. Có thể xem lại hoặc thu hồi trong Cài đặt Android → Trợ năng.
+- **Accessibility (Trợ năng):** nếu DevDex hướng dẫn bật dịch vụ Trợ năng, hãy đọc giải thích của Android rồi chỉ bật nếu bạn cần các tương tác desktop liên quan. Có thể xem lại hoặc thu hồi trong Cài đặt Android → Trợ năng.
 - Chỉ cấp quyền cho DevDex và khi cần thiết. Tên và vị trí các mục cài đặt có thể khác theo hãng máy.
 
-Một số thao tác hệ thống nâng cao cần **Shizuku** hoặc **Root**. Các tính năng desktop cơ bản không phải lúc nào cũng cần những quyền này. Đừng cấu hình nếu tính năng m định dùng không yêu cầu và m chưa rõ mức truy cập mà chúng cung cấp.
+Một số thao tác hệ thống nâng cao cần **Shizuku** hoặc **Root**. Các tính năng desktop cơ bản không phải lúc nào cũng cần những quyền này. Đừng cấu hình nếu tính năng bạn định dùng không yêu cầu và m chưa rõ mức truy cập mà chúng cung cấp.
 
 #### 5. Tùy chọn: đặt DevDex làm ứng dụng Màn hình chính mặc định
 
@@ -207,14 +207,14 @@ Có thể bỏ qua bước này và tự mở DevDex khi muốn sử dụng.
 - Mở DevDex và kiểm tra desktop, taskbar cùng dock có xuất hiện không.
 - Thử di chuyển, đổi kích thước, khôi phục và đóng một ứng dụng dạng cửa sổ.
 - Kiểm tra **Cài đặt → Appearance** về thanh trạng thái. Thanh trạng thái hiển thị mặc định; **Hide status bar** là tùy chọn.
-- Nếu dùng trình quản lý tệp tích hợp trên Android 11 trở lên, ứng dụng có thể yêu cầu quyền **All files access (Truy cập tất cả tệp)**. Chỉ cấp nếu m định dùng tính năng này.
+- Nếu dùng trình quản lý tệp tích hợp trên Android 11 trở lên, ứng dụng có thể yêu cầu quyền **All files access (Truy cập tất cả tệp)**. Chỉ cấp nếu bạn định dùng tính năng này.
 
 #### Khắc phục sự cố
 
 - **“App not installed” / không thể cài cập nhật:** có thể do chứng thư ký khác nhau. Đừng gỡ bản đang dùng nếu chưa sao lưu dữ liệu cần giữ và chưa chấp nhận khả năng dữ liệu cục bộ của DevDex bị xóa khi gỡ.
 - **Không thấy điều khiển cửa sổ hoặc lớp phủ:** kiểm tra quyền hiển thị trên ứng dụng khác và phần thiết lập Trợ năng mà DevDex hướng dẫn. Thử mở lại ứng dụng sau khi đổi quyền.
 - **Cửa sổ tự do (freeform) không hoạt động:** tính năng phụ thuộc phiên bản Android và firmware. Xem mục [Tương thích và giới hạn](#tương-thích-và-giới-hạn); một số hãng tắt sẵn freeform windows.
-- **Màn hình cấp quyền khác hướng dẫn:** làm theo thông báo Android trên thiết bị của m. Menu riêng của từng hãng có thể khác tên hoặc không có tính năng đó.
+- **Màn hình cấp quyền khác hướng dẫn:** làm theo thông báo Android trên thiết bị của bạn. Menu riêng của từng hãng có thể khác tên hoặc không có tính năng đó.
 
 Khi báo lỗi, hãy nêu model thiết bị, phiên bản Android/firmware, các bước tái hiện và đính kèm ảnh hoặc video trong [GitHub Issue](https://github.com/devboilol/devdex/issues).
 
