@@ -722,19 +722,10 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         desktopContainer.setPadding(desktopContainer.paddingLeft, desktopContainer.paddingTop, desktopContainer.paddingRight, dockHeightPx)
     }
 
-    // Patched: "الاج تو اج ... تغطي على الشاشة" — status bar overlapping desktop
-    // content. hideSystemBars() hides the status bar by default, but
-    // BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE means the user can still pull it
-    // back in with a swipe from the top (this is desktop/DEX mode — that's
-    // the only way to reach the time/notifications, so it has to stay
-    // reachable). When it's showing, it draws as a real overlay on top of
-    // whatever's there — nothing reserved space for it, so it visually
-    // covered the top row of desktop icons instead of them shifting down
-    // out of the way. This listener keeps the desktop container's top
-    // padding in sync with the current systemBars() inset live: 0 while
-    // the bar is hidden (content uses the full screen, the DEX-mode norm),
-    // and the bar's real height the instant a swipe reveals it — no fixed
-    // guess baked in, since transient-bar height/behavior can vary by OEM.
+    // Keep the desktop content below the status bar when it is visible or temporarily
+    // revealed by a swipe. The hide_status_bar preference is opt-in; navigation remains
+    // immersive as in the original desktop mode. Insets are live because transient-bar
+    // heights and cutout behavior vary between OEMs.
     private fun applyStatusBarInsetHandling() {
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(desktopContainer) { view, insets ->
             val topInset = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars()).top
