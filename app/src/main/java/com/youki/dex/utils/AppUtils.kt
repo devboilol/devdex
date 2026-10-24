@@ -426,6 +426,8 @@ object AppUtils {
     // ═══════════════════════════════════════════════════════════════════════
 
     private const val WINDOWING_MODE_FULLSCREEN = 1
+    private const val WINDOWING_MODE_SPLIT_PRIMARY = 3
+    private const val WINDOWING_MODE_SPLIT_SECONDARY = 4
     private const val WINDOWING_MODE_FREEFORM   = 5
 
     fun makeActivityOptions(
@@ -456,6 +458,18 @@ object AppUtils {
         // the display when the user actually chose a secondary display.
         if (Build.VERSION.SDK_INT >= 26 && display != Display.DEFAULT_DISPLAY) {
             options.setLaunchDisplayId(display)
+        }
+
+        // Some tablets advertise split-screen support but not freeform. In that case,
+        // let the caller request the secondary split-screen stage rather than passing
+        // bounds that the platform is documented to ignore.
+        if (mode == "split-primary" || mode == "split-secondary") {
+            setWindowingMode(
+                options,
+                if (mode == "split-primary") WINDOWING_MODE_SPLIT_PRIMARY
+                else WINDOWING_MODE_SPLIT_SECONDARY
+            )
+            return options
         }
 
         // HarmonyOS 5+: freeform windowing is not supported — return basic options with bounds only
@@ -762,6 +776,26 @@ object AppUtils {
         } catch (e: Exception) {}
 
         return outputLooksSuccessful(DeviceUtils.runAsRoot(wrappedCommand))
+    }
+
+    /**
+     * Switch a task to a supported Android windowing mode through shell privileges.
+     * This is also used to put an existing fullscreen task into split-screen primary
+     * before launching the next app into split-screen secondary on devices without
+     * real freeform-window support.
+     */
+    fun setTaskWindowingMode(context: Context, taskId: Int, windowingMode: Int): Boolean {
+        if (taskId < 0 || windowingMode !in setOf(
+                WINDOWING_MODE_FULLSCREEN,
+                WINDOWING_MODE_SPLIT_PRIMARY,
+                WINDOWING_MODE_SPLIT_SECONDARY,
+                WINDOWING_MODE_FREEFORM
+            )
+        ) return false
+        return runTaskShellCommand(
+            context,
+            "am task set-windowing-mode $taskId $windowingMode"
+        )
     }
 
     fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int): Boolean {
