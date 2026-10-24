@@ -54,9 +54,15 @@ Open **Settings → Advanced → Backup/Restore Preferences** to export or impor
 
 - Designed for Android 8.0 and newer; actual behavior depends on the device and Android version.
 - Selected system-level features and task/window operations may require Root or Shizuku.
-- Some manufacturers disable freeform windows by default.
+- Some manufacturers disable freeform windows by default. On affected RedMagic/ZTE builds, enable **Force activities to be resizable** and **Enable freeform windows** in Developer options; some builds also require **Settings → Display → Desktop Mode**, followed by a reboot. Menu names and availability vary by OEM/firmware. DevDex cannot restore a feature removed by the ROM.
+- **Settings → Advanced → Multitasking compatibility → Enable experimental freeform windows** is an opt-in attempt for ROMs that expose the underlying Android settings. It is not a universal workaround.
+- Apps that lock their orientation may ignore normal launch orientation requests. The experimental **Ignore app orientation requests** switch uses a system-level WindowManager command where available, needs Shizuku/Root on supported ROMs, affects the whole system, and can break camera or portrait-only interfaces. It is off by default.
+- Desktop widgets are off by default. Enable **Experimental desktop widgets** in Advanced settings to test them; behavior still depends on widget providers and OEM builds.
+- The Android status bar is visible by default. **Settings → Appearance → Hide status bar** can hide it for desktop mode; the navigation bar remains immersive and can be temporarily revealed with a swipe.
+- DevDex includes a rebuilt basic local file manager under **Settings → Default apps → Open DevDex file manager**. It supports folder navigation, opening/sharing files, rename/delete, multi-select, copy/move, ZIP creation, sorting, and search within the current folder. Android 11 and newer require the user to grant All files access. On ROMs that block this permission, use the system picker or another file manager. The MVP focuses on primary shared storage, not SD-card root browsing.
 - Window controls and fullscreen detection depend partly on Android and device-manufacturer behavior. Please test on your own device.
 - Always-on-top pinning for arbitrary apps is not implemented through the ordinary public Android APIs.
+- Current hands-on validation is limited to the Redmi Pad SE 8.7. Other tablet models, Android Go builds, and OEM-specific compatibility switches remain unverified until tested on those devices.
 
 ### Credits and acknowledgements
 
@@ -108,7 +114,12 @@ Mở **Cài đặt → Advanced → Backup/Restore Preferences** để xuất ho
 
 - Hướng tới Android 8.0 trở lên; hành vi thực tế phụ thuộc thiết bị và phiên bản Android.
 - Một số tính năng hệ thống hoặc thao tác quản lý tác vụ/cửa sổ có thể cần Root hoặc Shizuku.
-- Một số nhà sản xuất tắt sẵn chế độ cửa sổ tự do (freeform windows).
+- Thanh trạng thái Android hiển thị mặc định. Vào **Cài đặt → Appearance → Hide status bar** để ẩn khi dùng desktop mode; thanh điều hướng vẫn ở chế độ immersive và có thể hiện tạm thời khi vuốt.
+- Một số nhà sản xuất tắt sẵn chế độ cửa sổ tự do (freeform windows). Trên một số bản ROM RedMagic/ZTE, hãy bật **Force activities to be resizable** và **Enable freeform windows** trong Tùy chọn nhà phát triển; một số bản còn yêu cầu **Cài đặt → Màn hình → Desktop Mode** rồi khởi động lại. Tên mục và khả năng có sẵn tùy OEM/firmware. DevDex không thể khôi phục tính năng đã bị ROM loại bỏ.
+- **Cài đặt → Advanced → Tương thích đa nhiệm → Bật cửa sổ tự do thử nghiệm** là nỗ lực tùy chọn dành cho ROM vẫn cung cấp thiết lập Android tương ứng, không phải cách sửa phổ quát.
+- Ứng dụng tự khóa hướng màn hình có thể bỏ qua yêu cầu xoay thông thường. Công tắc thử nghiệm **Bỏ qua yêu cầu xoay màn hình của ứng dụng** dùng lệnh hệ thống WindowManager trên ROM hỗ trợ, cần Shizuku/Root, ảnh hưởng toàn hệ thống và có thể làm giao diện camera hoặc ứng dụng chỉ chạy dọc hoạt động sai. Mặc định tắt.
+- Tiện ích desktop mặc định tắt. Bật **Tiện ích desktop (thử nghiệm)** trong Cài đặt nâng cao để thử; hành vi vẫn phụ thuộc provider và ROM.
+- DevDex có trình quản lý tệp cục bộ cơ bản được dựng lại tại **Cài đặt → Ứng dụng mặc định → Mở trình quản lý tệp DevDex**. Tính năng gồm duyệt thư mục, mở/chia sẻ, đổi tên/xóa, chọn nhiều tệp, sao chép/di chuyển, tạo ZIP, sắp xếp và tìm trong thư mục hiện tại. Android 11 trở lên cần được cấp quyền Truy cập tất cả tệp. Nếu ROM chặn quyền này, hãy dùng trình chọn tệp hệ thống hoặc trình quản lý tệp khác. Bản MVP tập trung vào bộ nhớ dùng chung chính, chưa duyệt thư mục gốc của thẻ SD.
 - Việc nhận diện toàn màn hình và hiển thị điều khiển cửa sổ còn phụ thuộc Android và tùy biến của nhà sản xuất. Hãy kiểm tra trên thiết bị thực tế.
 - Tính năng ghim cửa sổ ứng dụng bất kỳ luôn nổi trên cùng chưa được triển khai bằng các API Android công khai thông thường.
 
