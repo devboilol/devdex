@@ -311,6 +311,7 @@
     <string name="allow_sysapp_uninstall_summary">Please be careful, this can be really dangerous</string>
     <string name="hide_status_bar_title">Hide status bar</string>
     <string name="hide_status_bar_summary">Off by default: keep the Android status bar visible. Turn on to hide it in desktop mode.</string>
+    <string name="multi_window_fallback_unavailable">This device does not expose freeform windows, and DevDex could not enable split-screen. Grant Shizuku access and check that both apps support Parallel Windows.</string>
     <string name="hide_nav_buttons_title">Hide navigation buttons</string>
     <string name="hide_nav_buttons_summary">Hides Android software navigation buttons. Needs reboot</string>
     <string name="disable_taskbar_title">Disable taskbar</string>
