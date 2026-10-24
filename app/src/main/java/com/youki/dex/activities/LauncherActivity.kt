@@ -161,8 +161,18 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
                 lockScreenFromDesktop()
                 return true
             }
+
+            override fun onLongPress(e: MotionEvent) {
+                // When gesture detection owns the touch sequence, View's
+                // normal long-click listener doesn't receive it. Preserve the
+                // desktop context menu through GestureDetector instead.
+                if (prefs.getBoolean("desktop_double_tap_to_sleep", true)) {
+                    showDesktopEmptySpaceMenu(e.x, e.y)
+                }
+            }
         })
         backgroundLayout.setOnLongClickListener {
+            // Fallback path while gestures are disabled.
             showDesktopEmptySpaceMenu(bgTouchX, bgTouchY)
             true
         }
@@ -170,8 +180,12 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             bgTouchX = event.x; bgTouchY = event.y
             if (prefs.getBoolean("desktop_double_tap_to_sleep", true)) {
                 desktopGestureDetector.onTouchEvent(event)
+                // Must consume DOWN through UP, otherwise Android can drop
+                // the remaining events before GestureDetector sees a double-tap.
+                true
+            } else {
+                false
             }
-            false
         }
 
         registerReceivers()

@@ -999,7 +999,8 @@
     <string name="window_resize_25">25% diện tích màn hình</string>
     <string name="window_resize_50">50% diện tích màn hình</string>
     <string name="window_resize_fullscreen">Toàn màn hình</string>
-    <string name="desktop_double_tap_to_sleep_title">Chạm đúp màn hình desktop để tắt màn hình</string>
+    <string name="desktop_gestures_category">Cử chỉ</string>
+    <string name="desktop_double_tap_to_sleep_title">Chạm đúp để tắt màn hình</string>
     <string name="desktop_double_tap_to_sleep_summary">Chạm đúp vào vùng trống trên desktop để khóa màn hình.</string>
     <string name="double_tap_sleep_requires_service">Hãy bật Accessibility Service hoặc quyền Quản trị viên thiết bị của DevDex để dùng gesture này.</string>
 </resources>
