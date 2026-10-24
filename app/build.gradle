@@ -4,6 +4,26 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
+// A monotonically increasing versionCode lets Android install a newer CI APK
+// over the previous one without uninstalling. Set -PdevdexBuildNumber locally if needed.
+def devdexBuildNumber = (project.findProperty("devdexBuildNumber")
+    ?: System.getenv("GITHUB_RUN_NUMBER")
+    ?: "0").toString().toInteger()
+def devdexVersionCode = 3500 + devdexBuildNumber
+
+// CI can supply a private, stable signing key through GitHub Actions secrets.
+// Never commit the keystore or its password to this public repository.
+def devdexSigningStoreFile = System.getenv("DEVDEX_SIGNING_STORE_FILE")
+def devdexSigningStorePassword = System.getenv("DEVDEX_SIGNING_STORE_PASSWORD")
+def devdexSigningKeyAlias = System.getenv("DEVDEX_SIGNING_KEY_ALIAS")
+def devdexSigningKeyPassword = System.getenv("DEVDEX_SIGNING_KEY_PASSWORD")
+def devdexHasStableSigning = devdexSigningStoreFile != null &&
+    !devdexSigningStoreFile.trim().isEmpty() &&
+    file(devdexSigningStoreFile).exists() &&
+    devdexSigningStorePassword != null && !devdexSigningStorePassword.isEmpty() &&
+    devdexSigningKeyAlias != null && !devdexSigningKeyAlias.isEmpty() &&
+    devdexSigningKeyPassword != null && !devdexSigningKeyPassword.isEmpty()
+
 android {
     namespace "com.youki.dex"
     compileSdk 35
@@ -12,8 +32,8 @@ android {
         applicationId "com.youki.dex"
         minSdk 26
         targetSdk 35
-        versionCode 3500
-        versionName "3.5"
+        versionCode devdexVersionCode
+        versionName "3.5.${devdexBuildNumber}"
         multiDexEnabled true
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
@@ -24,9 +44,25 @@ android {
         }
     }
 
+    signingConfigs {
+        if (devdexHasStableSigning) {
+            stable {
+                storeFile file(devdexSigningStoreFile)
+                storePassword devdexSigningStorePassword
+                keyAlias devdexSigningKeyAlias
+                keyPassword devdexSigningKeyPassword
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            // With a configured private key, all CI debug APKs share one signing identity.
+            if (devdexHasStableSigning) signingConfig signingConfigs.stable
+        }
         release {
             minifyEnabled false
+            if (devdexHasStableSigning) signingConfig signingConfigs.stable
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
