@@ -117,6 +117,17 @@
 
 
     <PreferenceCategory
+        android:key="multitasking_compatibility_category"
+        android:title="@string/multitasking_compatibility_category">
+
+        <SwitchPreferenceCompat
+            android:key="experimental_freeform_compatibility"
+            android:defaultValue="false"
+            android:title="@string/experimental_freeform_title"
+            android:summary="@string/experimental_freeform_summary" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="root_category"
         android:title="@string/root_required">
 
