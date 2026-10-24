@@ -5,12 +5,9 @@ import android.os.Bundle
 import com.youki.dex.utils.OnboardingPrefs
 
 /**
- * Entry point of the app (the app-drawer icon) — opens Settings
- * (MainActivity), not the desktop. Opening the desktop is the home-screen
- * shortcut's job (see shortcuts.xml -> ShortcutLauncherActivity), which
- * does its own accessibility-check + launch sequence independently — this
- * activity no longer needs to duplicate that logic, so it's just a thin
- * onboarding-gate + redirect to Settings.
+ * Main app entry point. First launch runs onboarding; subsequent launches
+ * open DevDex settings so users can configure the app. The desktop remains available
+ * through the Home/launcher entry point.
  */
 class SplashActivity : BaseFontScaleActivity() {
 
@@ -25,11 +22,13 @@ class SplashActivity : BaseFontScaleActivity() {
             return
         }
 
-        // App-drawer icon -> Settings. Opening the desktop is the separate
-        // home-screen shortcut's responsibility (ShortcutLauncherActivity).
+        // The app icon must always provide a reliable way into settings.
+        // LauncherActivity is a transparent desktop surface and may look blank
+        // on a fresh install with no desktop shortcuts, so it is not the app-icon
+        // destination. The desktop can still be opened through the Home launcher.
         startActivity(
             Intent(this, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         )
         finish()
         overridePendingTransition(0, 0)

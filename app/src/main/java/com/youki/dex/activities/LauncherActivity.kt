@@ -1,9 +1,11 @@
 package com.youki.dex.activities
 
 import android.annotation.SuppressLint
+import android.app.admin.DevicePolicyManager
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -11,6 +13,7 @@ import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -23,10 +26,12 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import com.google.android.material.button.MaterialButton
+import com.youki.dex.DeviceAdminReceiver
 import com.youki.dex.R
 import com.youki.dex.models.App
 import com.youki.dex.services.ACTION_LAUNCH_APP
@@ -72,6 +77,7 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
     private var dockServiceReceiver: BroadcastReceiver? = null
     private var bgTouchX = 0f
     private var bgTouchY = 0f
+    private lateinit var desktopGestureDetector: GestureDetector
 
     // ── Widget support ────────────────────────────────────────────────────────
     // TEMPORARILY DISABLED: widgets caused repeated crashes (duplicate view IDs on
@@ -145,15 +151,41 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
         applyDockPadding()
         applyStatusBarInsetHandling()
 
-        serviceBtn.setOnClickListener { startActivity(Intent(this, MainActivity::class.java)) }
+        serviceBtn.setOnClickListener { openSettingsScreen() }
 
+        desktopGestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                if (!prefs.getBoolean("desktop_double_tap_to_sleep", true)) return false
+                lockScreenFromDesktop()
+                return true
+            }
+
+            override fun onLongPress(e: MotionEvent) {
+                // When gesture detection owns the touch sequence, View's
+                // normal long-click listener doesn't receive it. Preserve the
+                // desktop context menu through GestureDetector instead.
+                if (prefs.getBoolean("desktop_double_tap_to_sleep", true)) {
+                    showDesktopEmptySpaceMenu(e.x, e.y)
+                }
+            }
+        })
         backgroundLayout.setOnLongClickListener {
+            // Fallback path while gestures are disabled.
             showDesktopEmptySpaceMenu(bgTouchX, bgTouchY)
             true
         }
         backgroundLayout.setOnTouchListener { _, event ->
             bgTouchX = event.x; bgTouchY = event.y
-            false
+            if (prefs.getBoolean("desktop_double_tap_to_sleep", true)) {
+                desktopGestureDetector.onTouchEvent(event)
+                // Must consume DOWN through UP, otherwise Android can drop
+                // the remaining events before GestureDetector sees a double-tap.
+                true
+            } else {
+                false
+            }
         }
 
         registerReceivers()
@@ -189,6 +221,40 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
             .setNegativeButton(getString(R.string.cancel), null)
             .setCancelable(true)
             .show()
+    }
+
+    private fun lockScreenFromDesktop() {
+        // Device-admin is the most direct path when the user has already enabled it.
+        try {
+            val manager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            if (manager.isAdminActive(ComponentName(this, DeviceAdminReceiver::class.java))) {
+                manager.lockNow()
+                return
+            }
+        } catch (_: Exception) {}
+
+        // Otherwise, delegate to the active DevDex accessibility service. This
+        // does not need Device Admin, only the service the desktop already uses.
+        if (com.youki.dex.utils.DeviceUtils.isAccessibilityServiceEnabled(this)) {
+            sendBroadcast(
+                Intent(DOCK_SERVICE_ACTION)
+                    .setPackage(packageName)
+                    .putExtra("action", "lock_screen")
+            )
+        } else {
+            Toast.makeText(this, R.string.double_tap_sleep_requires_service, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openSettingsScreen() {
+        // Settings must open as a normal, visible Activity. Do not route it through
+        // DockService.launchApp("standard"), which intentionally requests a freeform
+        // window and can leave Settings appearing empty on devices without reliable
+        // freeform support.
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        )
     }
 
     override fun onResume() {

@@ -109,11 +109,10 @@ class ShizukoManager private constructor(private val context: Context) {
                 if (sdkInt >= 31) {
                     add("wm set-multi-window-config --freeformWindowManagement true")
                 }
-                // Android 11+ developer-option equivalent of "Force activities to
-                // be resizable" — without this, apps declaring
-                // resizeableActivity=false get pushed back to fullscreen even
-                // inside a freeform task.
-                add("settings put global development_force_resizable_activities 1")
+                // Do not enable development_force_resizable_activities globally.
+                // This is a developer compatibility override, not a safe production
+                // prerequisite for freeform. Forcing every Activity to resize can break
+                // apps that expect fullscreen; request freeform per launch instead.
                 // Android 15 (API 35): Desktop Windowing Mode. Without these,
                 // freeform windows on API 35 render without the system caption bar.
                 if (sdkInt == 35) {
@@ -393,6 +392,35 @@ class ShizukoManager private constructor(private val context: Context) {
             runCatching { p.destroy() }
             out
         } catch (e: Exception) { null }
+    }
+
+    /**
+     * Blocking shell call that preserves stderr as well as stdout. Task/window
+     * operations need this because Android often reports permission failures
+     * on stderr while stdout is empty. Call only from a background thread.
+     */
+    fun runShellSyncWithStderr(cmd: String): String? {
+        if (!hasPermission) return null
+        return try {
+            val process = newProcess(cmd)
+            var errorOutput = ""
+            val stderr = Thread {
+                runCatching { errorOutput = process.errorStream.bufferedReader().readText().trim() }
+            }
+            stderr.start()
+            val stdout = process.inputStream.bufferedReader().readText().trim()
+            stderr.join(1000)
+            runCatching { process.destroy() }
+            buildString {
+                if (stdout.isNotBlank()) append(stdout)
+                if (errorOutput.isNotBlank()) {
+                    if (isNotEmpty()) append("\n")
+                    append(errorOutput)
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /**

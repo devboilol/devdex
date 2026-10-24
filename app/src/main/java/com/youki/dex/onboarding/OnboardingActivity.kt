@@ -8,6 +8,10 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.core.content.edit
+import androidx.preference.PreferenceManager
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.button.MaterialButton
 import com.youki.dex.R
@@ -104,9 +108,44 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun finishOnboarding() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        prefs.edit {
+            // Apply the desktop-first profile once on a fresh install. Later imports
+            // and user customization must never be overwritten by this setup step.
+            if (!prefs.getBoolean("devdex_first_run_defaults_applied", false)) {
+                putInt("dock_layout", 0) // Minimal preset: fewer taskbar controls
+                putString("max_running_apps", "4")
+                putString("max_running_apps_landscape", "8")
+                putBoolean("center_running_apps", true)
+                putBoolean("center_apps_btn", true)
+                putString("icon_shape", "win")
+                putString("theme", "material_u")
+                putString("launch_mode", "standard")
+                putBoolean("app_menu_fullscreen", true)
+                putBoolean("enable_nav_back", true)
+                putBoolean("enable_nav_home", true)
+                putBoolean("enable_nav_recents", true)
+                putBoolean("enable_nav_assist", true)
+                putBoolean("enable_qs_wifi", false)
+                putBoolean("enable_qs_vol", false)
+                putBoolean("enable_qs_date", false)
+                putBoolean("enable_qs_notif", false)
+                putBoolean("enable_qs_pin", false)
+                putBoolean("show_notifications", false)
+                putString("activation_method", "handle")
+                putBoolean("devdex_first_run_defaults_applied", true)
+            }
+        }
+        val language = prefs.getString("app_language", "system") ?: "system"
+        AppCompatDelegate.setApplicationLocales(
+            if (language == "system") LocaleListCompat.getEmptyLocaleList()
+            else LocaleListCompat.forLanguageTags(language)
+        )
         OnboardingPrefs.setOnboardingComplete(this, true)
-        startActivity(Intent(this, SplashActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Finish setup in settings so the user can review permissions and
+        // change preferences immediately. The desktop is still available as HOME.
+        startActivity(Intent(this, com.youki.dex.activities.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         })
         finish()
     }

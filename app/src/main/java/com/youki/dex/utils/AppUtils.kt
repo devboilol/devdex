@@ -428,6 +428,12 @@ object AppUtils {
     private const val WINDOWING_MODE_FULLSCREEN = 1
     private const val WINDOWING_MODE_FREEFORM   = 5
 
+    private const val PREF_EXPERIMENTAL_FREEFORM = "experimental_freeform_compatibility"
+    private const val PREF_FREEFORM_BACKUP_SAVED = "_devdex_freeform_settings_backup_saved"
+    private const val PREF_FREEFORM_ORIGINAL_ENABLE = "_devdex_original_enable_freeform_support"
+    private const val PREF_FREEFORM_ORIGINAL_RESIZABLE = "_devdex_original_force_resizable_activities"
+    private const val NULL_SETTING_SENTINEL = "__devdex_setting_was_absent__"
+
     fun makeActivityOptions(
         context: Context, mode: String, dockHeight: Int, displayId: Int
     ): ActivityOptions {
@@ -440,12 +446,22 @@ object AppUtils {
         }
 
         val options = ActivityOptions.makeBasic()
-        if (Build.VERSION.SDK_INT >= 26) options.setLaunchDisplayId(display)
 
-        // FULLSCREEN — simple, works on all API levels
+        // Fullscreen on the built-in display should use Android's normal launch
+        // path. Forcing hidden setLaunchWindowingMode(1) and explicitly targeting
+        // display 0 adds no value, and some OEM builds mishandle that combination.
         if (mode == "fullscreen") {
-            setWindowingMode(options, WINDOWING_MODE_FULLSCREEN)
+            if (Build.VERSION.SDK_INT >= 26 && display != Display.DEFAULT_DISPLAY) {
+                options.setLaunchDisplayId(display)
+            }
             return options
+        }
+
+        // The built-in display is the default. Explicitly setting display 0 is
+        // redundant and has caused launch quirks on some OEM builds; only override
+        // the display when the user actually chose a secondary display.
+        if (Build.VERSION.SDK_INT >= 26 && display != Display.DEFAULT_DISPLAY) {
+            options.setLaunchDisplayId(display)
         }
 
         // HarmonyOS 5+: freeform windowing is not supported — return basic options with bounds only
@@ -704,74 +720,247 @@ object AppUtils {
         return "am start -n $component --windowingMode $wm --display $displayId --launch-bounds \"$b\""
     }
 
-    fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int) {
-        if (taskId < 0) return
-        val bounds    = makeLaunchBounds(context, mode, dockHeight)
-        val modeCmd   = "am task set-windowing-mode $taskId 5"
-        val resizeCmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
+    /**
+     * Execute a privileged ActivityManager command through the available
+     * shell route. Return a result instead of silently pretending the resize
+     * worked; the window controls use this to choose a safe minimize fallback.
+     */
+    private fun runTaskShellCommand(context: Context, command: String): Boolean {
+        // ActivityManager shell commands can print permission errors while the
+        // shell process itself exits with code 0. Carry the command's actual
+        // exit status through every route instead of treating empty stdout as
+        // success (the old behavior hid failed Close/Resize operations).
+        val dollar = 36.toChar()
+        val wrappedCommand = "$command; __devdex_exit=${dollar}?; echo __DEVDEX_EXIT_CODE:${dollar}__devdex_exit"
 
-        // Gap 16: we read stderr instead of the unreliable exitValue()
+        fun outputLooksSuccessful(output: String?): Boolean {
+            if (output.isNullOrBlank()) return false
+            val marker = Regex("""__DEVDEX_EXIT_CODE:(\d+)""").find(output) ?: return false
+            if (marker.groupValues[1] != "0") return false
+            val cleanOutput = output.replace(marker.value, "")
+            return !Regex("(?i)(error(?::|\\b)|permission denied|not allowed|unknown command|not found|failed|securityexception|exception occurred)")
+                .containsMatchIn(cleanOutput)
+        }
+
         try {
-            Runtime.getRuntime().exec(arrayOf("sh", "-c", modeCmd)).waitFor()
-            Thread.sleep(150)
-            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", resizeCmd))
-            p.waitFor()
-            val stderr = p.errorStream.bufferedReader().readText().trim()
-            if (stderr.isEmpty()) return
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", wrappedCommand))
+            val finished = process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+            if (finished) {
+                val stderr = process.errorStream.bufferedReader().readText().trim()
+                val stdout = process.inputStream.bufferedReader().readText().trim()
+                if (process.exitValue() == 0 &&
+                    outputLooksSuccessful("$stdout\n$stderr")
+                ) return true
+            }
+            process.destroyForcibly()
         } catch (e: Exception) {}
 
-        // ShellManager socket (no AIDL) → fallback Shizuku → fallback Root
         try {
             val shell = com.youki.dex.server.ShellManager
-            if (shell.isAvailable) {
-                shell.execSync(modeCmd)
-                Thread.sleep(150)
-                shell.execSync(resizeCmd)
-                return
-            }
+            if (shell.isAvailable && outputLooksSuccessful(shell.execSync(wrappedCommand))) return true
         } catch (e: Exception) {}
 
         try {
             val shizuku = ShizukoManager.getInstance(context)
-            if (shizuku.hasPermission) {
-                shizuku.runShellSync(modeCmd)
-                Thread.sleep(200)
-                shizuku.runShellSync(resizeCmd)
-                return
-            }
+            if (shizuku.hasPermission &&
+                outputLooksSuccessful(shizuku.runShellSyncWithStderr(wrappedCommand))
+            ) return true
         } catch (e: Exception) {}
 
-        DeviceUtils.runAsRoot(modeCmd)
-        Thread.sleep(150)
-        DeviceUtils.runAsRoot(resizeCmd)
+        return outputLooksSuccessful(DeviceUtils.runAsRoot(wrappedCommand))
     }
 
     /**
-     * Moves/resizes [taskId] to exactly [bounds] (used by the window-controls
-     * minimize/restore). Same fallback chain as resizeTask/closeTask:
-     * plain shell → ShellManager → Shizuku → root. Call from a background thread.
+     * True only when the user enabled DevDex's experimental freeform compatibility
+     * option and both Android global settings were actually applied. A persisted
+     * switch alone is not proof that the ROM accepted the setting.
      */
-    fun resizeTaskToBounds(context: Context, taskId: Int, bounds: Rect) {
-        if (taskId < 0) return
+    fun isExperimentalFreeformEnabled(context: Context): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        if (!prefs.getBoolean(PREF_EXPERIMENTAL_FREEFORM, false)) return false
+        return try {
+            android.provider.Settings.Global.getString(
+                context.contentResolver, "enable_freeform_support"
+            ) == "1" &&
+                android.provider.Settings.Global.getString(
+                    context.contentResolver, "force_resizable_activities"
+                ) == "1"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Opt-in compatibility path for ROMs that ship without the freeform feature.
+     * The two global settings are Developer Options settings and activating freeform
+     * normally requires a device reboot. Previous values are recorded and restored
+     * when the switch is disabled; DevDex must never silently rewrite these settings
+     * as a side effect of granting an unrelated permission.
+     */
+    fun setExperimentalFreeformCompatibility(context: Context, enabled: Boolean): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val resolver = context.contentResolver
+
+        fun current(key: String): String =
+            android.provider.Settings.Global.getString(resolver, key) ?: NULL_SETTING_SENTINEL
+
+        fun original(key: String): String? {
+            val stored = prefs.getString(key, NULL_SETTING_SENTINEL) ?: NULL_SETTING_SENTINEL
+            return if (stored == NULL_SETTING_SENTINEL) null else stored
+        }
+
+        if (enabled) {
+            if (!prefs.getBoolean(PREF_FREEFORM_BACKUP_SAVED, false)) {
+                try {
+                    prefs.edit()
+                        .putString(PREF_FREEFORM_ORIGINAL_ENABLE, current("enable_freeform_support"))
+                        .putString(PREF_FREEFORM_ORIGINAL_RESIZABLE, current("force_resizable_activities"))
+                        .putBoolean(PREF_FREEFORM_BACKUP_SAVED, true)
+                        .apply()
+                } catch (e: Exception) {
+                    return false
+                }
+            }
+
+            val freeformApplied = putGlobalSettingVerified(context, "enable_freeform_support", "1")
+            val resizableApplied = freeformApplied &&
+                putGlobalSettingVerified(context, "force_resizable_activities", "1")
+            if (freeformApplied && resizableApplied) return true
+
+            // Roll back a partially applied change so a failed attempt does not leave
+            // the tablet in a half-configured state.
+            putGlobalSettingVerified(
+                context, "enable_freeform_support",
+                original(PREF_FREEFORM_ORIGINAL_ENABLE)
+            )
+            putGlobalSettingVerified(
+                context, "force_resizable_activities",
+                original(PREF_FREEFORM_ORIGINAL_RESIZABLE)
+            )
+            return false
+        }
+
+        if (!prefs.getBoolean(PREF_FREEFORM_BACKUP_SAVED, false)) return true
+
+        val restoredFreeform = putGlobalSettingVerified(
+            context, "enable_freeform_support",
+            original(PREF_FREEFORM_ORIGINAL_ENABLE)
+        )
+        val restoredResizable = putGlobalSettingVerified(
+            context, "force_resizable_activities",
+            original(PREF_FREEFORM_ORIGINAL_RESIZABLE)
+        )
+        if (!restoredFreeform || !restoredResizable) return false
+
+        prefs.edit()
+            .remove(PREF_FREEFORM_ORIGINAL_ENABLE)
+            .remove(PREF_FREEFORM_ORIGINAL_RESIZABLE)
+            .remove(PREF_FREEFORM_BACKUP_SAVED)
+            .apply()
+        return true
+    }
+
+    private fun putGlobalSettingVerified(context: Context, key: String, value: String?): Boolean {
+        if (key !in setOf("enable_freeform_support", "force_resizable_activities")) return false
+        val resolver = context.contentResolver
+
+        fun matches(): Boolean {
+            val actual = try {
+                android.provider.Settings.Global.getString(resolver, key)
+            } catch (e: Exception) {
+                return false
+            }
+            return if (value == null) actual.isNullOrEmpty() else actual == value
+        }
+
+        try {
+            android.provider.Settings.Global.putString(resolver, key, value)
+            if (matches()) return true
+        } catch (e: Exception) {}
+
+        val command = if (value == null) {
+            "settings delete global $key"
+        } else {
+            "settings put global $key $value"
+        }
+        if (!runTaskShellCommand(context, command)) return false
+        return matches()
+    }
+
+    fun resizeTask(context: Context, mode: String, taskId: Int, dockHeight: Int): Boolean {
+        if (taskId < 0) return false
+        val bounds = makeLaunchBounds(context, mode, dockHeight)
+        val modeCmd = "am task set-windowing-mode $taskId 5"
+        val resizeCmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
+
+        // Changing mode and bounds are separate operations. Some ROMs reject
+        // the mode command for a task that is already freeform, so the resize
+        // result is the meaningful success signal for this control.
+        if (runTaskShellCommand(context, modeCmd)) {
+            try { Thread.sleep(150) } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        return runTaskShellCommand(context, resizeCmd)
+    }
+
+    /**
+     * Resize an existing freeform task to one of the explicit desktop presets.
+     * 25 and 50 refer to the fraction of usable screen area; the window keeps
+     * the display aspect ratio. 100 switches the task to Android fullscreen mode.
+     */
+    fun resizeTaskToPreset(
+        context: Context,
+        taskId: Int,
+        percent: Int,
+        dockHeight: Int,
+        displayId: Int = Display.DEFAULT_DISPLAY
+    ): Boolean {
+        if (taskId < 0) return false
+        val dm = DeviceUtils.getDisplayMetrics(context, displayId)
+        if (percent >= 100) {
+            if (runTaskShellCommand(context, "am task set-windowing-mode $taskId 1")) return true
+            // Some vendor shells reject a windowing-mode change but accept an
+            // edge-to-edge resize. This fallback still gives a useful result.
+            return resizeTaskToBounds(context, taskId, Rect(0, 0, dm.widthPixels, dm.heightPixels))
+        }
+
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val statusHeight = DeviceUtils.getStatusBarHeight(context).coerceAtLeast(0)
+        val navHeight = DeviceUtils.getNavBarHeight(context).coerceAtLeast(0)
+        val safeDockHeight = dockHeight.coerceAtLeast(0)
+        val dockAtTop = DockPositionUtils.get(prefs) == DockPositionUtils.Position.TOP
+        val safeTop = if (dockAtTop) maxOf(statusHeight, safeDockHeight) else statusHeight
+        val safeBottom = if (dockAtTop) {
+            dm.heightPixels - navHeight
+        } else {
+            dm.heightPixels - maxOf(safeDockHeight, navHeight)
+        }
+        val usableHeight = (safeBottom - safeTop).coerceAtLeast(1)
+        val scale = kotlin.math.sqrt(percent.coerceIn(25, 50) / 100f)
+        val targetWidth = (dm.widthPixels * scale).toInt().coerceIn(1, dm.widthPixels)
+        val targetHeight = (usableHeight * scale).toInt().coerceIn(1, usableHeight)
+        val left = ((dm.widthPixels - targetWidth) / 2).coerceAtLeast(0)
+        val top = safeTop + ((usableHeight - targetHeight) / 2).coerceAtLeast(0)
+        val bounds = Rect(left, top, left + targetWidth, top + targetHeight)
+
+        // Make sure the task is in freeform mode before assigning partial bounds.
+        if (runTaskShellCommand(context, "am task set-windowing-mode $taskId 5")) {
+            try { Thread.sleep(120) } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        return resizeTaskToBounds(context, taskId, bounds)
+    }
+
+    /**
+     * Moves/resizes [taskId] to exactly [bounds] (used by window controls).
+     * False means every available shell route was rejected.
+     */
+    fun resizeTaskToBounds(context: Context, taskId: Int, bounds: Rect): Boolean {
+        if (taskId < 0) return false
         val cmd = "am task resize $taskId ${bounds.left} ${bounds.top} ${bounds.right} ${bounds.bottom}"
-
-        try {
-            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-            p.waitFor()
-            if (p.errorStream.bufferedReader().readText().trim().isEmpty()) return
-        } catch (e: Exception) {}
-
-        try {
-            val shell = com.youki.dex.server.ShellManager
-            if (shell.isAvailable) { shell.execSync(cmd); return }
-        } catch (e: Exception) {}
-
-        try {
-            val shizuku = ShizukoManager.getInstance(context)
-            if (shizuku.hasPermission) { shizuku.runShellSync(cmd); return }
-        } catch (e: Exception) {}
-
-        DeviceUtils.runAsRoot(cmd)
+        return runTaskShellCommand(context, cmd)
     }
 
     /**
@@ -790,33 +979,109 @@ object AppUtils {
      * SecurityException fix for the same reasoning around
      * setLaunchDisplayId, in PerfectServer.launchApp).
      */
-    fun closeTask(context: Context, taskId: Int) {
-        if (taskId < 0) return
-        val cmd = "am task remove $taskId"
+    fun closeTask(context: Context, taskId: Int): Boolean {
+        if (taskId < 0) return false
 
-        try {
-            val p = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
-            p.waitFor()
-            if (p.exitValue() == 0) return
-        } catch (e: Exception) {}
-
-        try {
-            val shell = com.youki.dex.server.ShellManager
-            if (shell.isAvailable) {
-                shell.execSync(cmd)
-                return
+        // AOSP exposes task removal under "am stack remove" (remove a root task).
+        // "am task remove" is not implemented by many Android versions and only
+        // prints "unknown command", which used to be misreported as missing
+        // Shizuku/Root even when DevDex had permission. Keep the legacy spelling
+        // as a vendor fallback, but use the standard command first.
+        val commands = listOf(
+            "am stack remove $taskId",
+            "cmd activity stack remove $taskId",
+            "am task remove $taskId"
+        )
+        for (command in commands) {
+            if (runTaskShellCommand(context, command)) {
+                android.util.Log.i("DevDexWindowControls", "Closed task $taskId using ${command.substringBefore(' ')}")
+                return true
             }
-        } catch (e: Exception) {}
+        }
+        android.util.Log.w("DevDexWindowControls", "All task removal commands failed for task $taskId")
+        return false
+    }
 
-        try {
-            val shizuku = ShizukoManager.getInstance(context)
-            if (shizuku.hasPermission) {
-                shizuku.runShellSync(cmd)
-                return
+    /**
+     * Resolve a third-party app task when Android's public ActivityManager
+     * APIs hide it (common on modern Android/desktop modes). Window controls
+     * call this only on an IO thread, never while laying out the overlay.
+     *
+     * Try the same privileged routes used by task removal. Shizuku merely
+     * being installed/running is not enough: DevDex itself must be authorized.
+     */
+    fun findTaskIdViaPrivilegedShell(
+        context: Context,
+        packageName: String,
+        index: Int = 0
+    ): Int {
+        if (!packageName.matches(Regex("[A-Za-z0-9._]+")) || index < 0) return -1
+
+        fun parse(output: String?): List<Int> {
+            if (output.isNullOrBlank()) return emptyList()
+            val ids = linkedSetOf<Int>()
+            val taskIdRegex = Regex("""taskId=(\d+)""")
+            val packageRegex = Regex("""baseIntent=([A-Za-z0-9_.]+)/""")
+
+            // The legacy am stack list output commonly emits taskId and
+            // baseIntent on the same line. Preserve same-package task IDs.
+            output.lineSequence().forEach { line ->
+                val taskId = taskIdRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                val pkg = packageRegex.find(line)?.groupValues?.getOrNull(1)
+                if (taskId != null && pkg == packageName) ids.add(taskId)
             }
-        } catch (e: Exception) {}
 
-        DeviceUtils.runAsRoot(cmd)
+            // Newer Android versions may only expose package/task pairs in
+            // dumpsys ActivityRecord lines, e.g. "pkg/.Activity t123".
+            val activityRecordRegex = Regex(
+                """\b""" + Regex.escape(packageName) + """/[^\s}]+.*?\bt(\d+)\b"""
+            )
+            output.lineSequence().forEach { line ->
+                activityRecordRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let(ids::add)
+            }
+
+            // Final fallback for dumpsys variants where the task number and
+            // package appear on different lines inside a Task/TaskRecord block.
+            val blocks = Regex(
+                """(?s)(?:TaskRecord|Task)\{.*?(?=(?:TaskRecord|Task)\{|\z)"""
+            )
+            blocks.findAll(output).forEach { match ->
+                val block = match.value
+                if (Regex("""\b""" + Regex.escape(packageName) + """/""").containsMatchIn(block)) {
+                    Regex("""(?:taskId=|#)(\d+)""").find(block)
+                        ?.groupValues?.getOrNull(1)?.toIntOrNull()?.let(ids::add)
+                }
+            }
+            return ids.toList()
+        }
+
+        val shell = com.youki.dex.server.ShellManager
+        if (shell.isAvailable) {
+            for (command in listOf("am stack list", "dumpsys activity activities")) {
+                try {
+                    val ids = parse(shell.execSync(command))
+                    ids.getOrNull(index)?.let { return it }
+                } catch (e: Exception) {}
+            }
+        }
+
+        val shizuku = ShizukoManager.getInstance(context)
+        if (shizuku.hasPermission) {
+            for (command in listOf("am stack list", "dumpsys activity activities")) {
+                try {
+                    val ids = parse(shizuku.runShellSync(command))
+                    ids.getOrNull(index)?.let { return it }
+                } catch (e: Exception) {}
+            }
+        }
+
+        for (command in listOf("am stack list", "dumpsys activity activities")) {
+            try {
+                val ids = parse(DeviceUtils.runAsRoot(command))
+                ids.getOrNull(index)?.let { return it }
+            } catch (e: Exception) {}
+        }
+        return -1
     }
 
     private fun execShizukuSync(shizuku: ShizukoManager, cmd: String) {
@@ -921,14 +1186,17 @@ object AppUtils {
             val taskIdRegex = Regex("""taskId=(\d+)""")
             val pkgRegex = Regex("""baseIntent=([a-zA-Z0-9_.]+)/""")
 
-            val seenPkgs = mutableSetOf<String>()
+            // Tasks, not packages, are the unit of identity here. Two
+            // freeform windows may legitimately belong to the same package;
+            // deduplicating by package made the second window disappear from
+            // the dock and confused title-bar controls about which task to act on.
+            val seenTaskIds = mutableSetOf<Int>()
             for (line in output.lines()) {
                 if (result.size >= max) break
                 val taskId = taskIdRegex.find(line)?.groupValues?.get(1)?.toIntOrNull() ?: continue
                 val pkg = pkgRegex.find(line)?.groupValues?.get(1) ?: continue
                 if (pkg == selfPkg || pkg == launcherPkg || pkg.contains("systemui")) continue
-                if (seenPkgs.contains(pkg)) continue
-                seenPkgs.add(pkg)
+                if (!seenTaskIds.add(taskId)) continue
 
                 try {
                     val intent = packageManager.getLaunchIntentForPackage(pkg) ?: continue
