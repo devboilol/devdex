@@ -1090,4 +1090,7 @@ To uninstall, remove Device Administrator permission first.</string>
 
     <string name="window_task_not_found">DevDex could not identify this window task. Try granting DevDex Shizuku access or use Close app if ending the whole session is acceptable.</string>
     <string name="shizuku_permission_required_for_window_close">Shizuku may be running, but DevDex still needs authorization in Shizuku. Grant access to DevDex, then tap Close again.</string>
+    <string name="desktop_empty_title">Welcome to DevDex</string>
+    <string name="desktop_empty_message">Your desktop has no shortcuts yet. Open Settings to configure DevDex, or long-press an empty area to add apps.</string>
+    <string name="desktop_open_settings">Open settings</string>
 </resources>
