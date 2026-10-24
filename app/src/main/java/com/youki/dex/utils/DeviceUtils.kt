@@ -162,10 +162,27 @@ object DeviceUtils {
 
     fun hideStatusBar(context: android.content.Context, hide: Boolean) {
         try {
+            val resolver = context.contentResolver
+            val current = android.provider.Settings.Global.getString(resolver, "policy_control").orEmpty()
+            // Remove the global immersive policies DevDex used in older builds, but
+            // preserve unrelated app-specific policies owned by the user or the ROM.
+            val policies = current.split(',')
+                .map { it.trim() }
+                .filter {
+                    it.isNotEmpty() &&
+                        it != "null" &&
+                        !it.startsWith("immersive.full=") &&
+                        !it.startsWith("immersive.status=")
+                }
+                .toMutableList()
+
+            // Do not use immersive.full: it also hides navigation and can force
+            // gesture-navigation devices into a different navigation mode.
+            if (hide) policies.add("immersive.status=*")
             android.provider.Settings.Global.putString(
-                context.contentResolver,
+                resolver,
                 "policy_control",
-                if (hide) "immersive.full=*" else "null"
+                policies.joinToString(",").ifEmpty { null }
             )
         } catch (e: Exception) {}
     }
