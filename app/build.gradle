@@ -9,7 +9,7 @@ plugins {
 def devdexBuildNumber = (project.findProperty("devdexBuildNumber")
     ?: System.getenv("GITHUB_RUN_NUMBER")
     ?: "0").toString().toInteger()
-def devdexVersionCode = 3500 + devdexBuildNumber
+def devdexVersionCode = 3500 + devdexBuildNumber\n// Keep the normal CI version by default, but allow an RC workflow to set an explicit label.\ndef devdexVersionName = (project.findProperty("devdexVersionName") ?: System.getenv("DEVDEX_VERSION_NAME") ?: "3.5.${devdexBuildNumber}").toString()
 
 // CI can supply a private, stable signing key through GitHub Actions secrets.
 // Never commit the keystore or its password to this public repository.
@@ -33,7 +33,7 @@ android {
         minSdk 26
         targetSdk 35
         versionCode devdexVersionCode
-        versionName "3.5.${devdexBuildNumber}"
+        versionName devdexVersionName
         multiDexEnabled true
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
