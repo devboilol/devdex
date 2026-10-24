@@ -20,7 +20,37 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Configure these Actions secrets once for stable install-over-update:
+      # DEVDEX_KEYSTORE_BASE64, DEVDEX_KEYSTORE_PASSWORD,
+      # DEVDEX_KEY_ALIAS, DEVDEX_KEY_PASSWORD.
+      # Do not commit the signing key to this public repository.
+      - name: Prepare stable signing key (optional)
+        env:
+          DEVDEX_KEYSTORE_BASE64: ${{ secrets.DEVDEX_KEYSTORE_BASE64 }}
+          DEVDEX_KEYSTORE_PASSWORD: ${{ secrets.DEVDEX_KEYSTORE_PASSWORD }}
+          DEVDEX_KEY_ALIAS: ${{ secrets.DEVDEX_KEY_ALIAS }}
+          DEVDEX_KEY_PASSWORD: ${{ secrets.DEVDEX_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          values="${DEVDEX_KEYSTORE_BASE64}${DEVDEX_KEYSTORE_PASSWORD}${DEVDEX_KEY_ALIAS}${DEVDEX_KEY_PASSWORD}"
+          if [ -z "${values}" ]; then
+            echo "::warning::Stable signing is not configured. Future APKs may require one uninstall before in-place updates work consistently."
+            exit 0
+          fi
+          if [ -z "${DEVDEX_KEYSTORE_BASE64}" ] || [ -z "${DEVDEX_KEYSTORE_PASSWORD}" ] || [ -z "${DEVDEX_KEY_ALIAS}" ] || [ -z "${DEVDEX_KEY_PASSWORD}" ]; then
+            echo "::error::Set all four DEVDEX signing secrets or leave all of them empty."
+            exit 1
+          fi
+          printf '%s' "${DEVDEX_KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/devdex-signing.jks"
+          echo "DEVDEX_SIGNING_STORE_FILE=${RUNNER_TEMP}/devdex-signing.jks" >> "${GITHUB_ENV}"
+          echo "Prepared stable signing keystore."
+
       - name: Build debug APK
+        env:
+          DEVDEX_SIGNING_STORE_PASSWORD: ${{ secrets.DEVDEX_KEYSTORE_PASSWORD }}
+          DEVDEX_SIGNING_KEY_ALIAS: ${{ secrets.DEVDEX_KEY_ALIAS }}
+          DEVDEX_SIGNING_KEY_PASSWORD: ${{ secrets.DEVDEX_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
           ./gradlew assembleDebug --stacktrace
