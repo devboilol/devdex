@@ -141,8 +141,9 @@ class OnboardingActivity : AppCompatActivity() {
             else LocaleListCompat.forLanguageTags(language)
         )
         OnboardingPrefs.setOnboardingComplete(this, true)
-        // Setup finishes at the desktop, not the settings screen.
-        startActivity(Intent(this, com.youki.dex.activities.LauncherActivity::class.java).apply {
+        // Finish setup in settings so the user can review permissions and
+        // change preferences immediately. The desktop is still available as HOME.
+        startActivity(Intent(this, com.youki.dex.activities.MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         })
         finish()
