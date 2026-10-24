@@ -17,6 +17,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.Toast
 import com.youki.dex.R
 
@@ -172,28 +173,47 @@ class WindowControlsManager(
                         seenIds.add(w.id)
                         continue
                     }
-                    var pkg = pkgCache[w.id]
-                    if (pkg == null || !nativeCaptionCache.containsKey(w.id)) {
-                        val root = w.root
-                        if (pkg == null) {
-                            pkg = root?.packageName?.toString()
-                            if (pkg != null) pkgCache[w.id] = pkg
-                        }
-                        if (root != null && !nativeCaptionCache.containsKey(w.id)) {
-                            // hasNativeCaptionControls() owns and recycles the
-                            // root node together with the child nodes it visits.
-                            nativeCaptionCache[w.id] = hasNativeCaptionControls(root, b)
-                        } else {
-                            try { root?.recycle() } catch (e: Exception) {}
-                        }
+                    // Window IDs can be recycled by Android between apps. Always
+                    // re-read the live package, and invalidate caption detection
+                    // when an ID now belongs to a different package; stale cached
+                    // identities were one source of orphan close buttons.
+                    var root: android.view.accessibility.AccessibilityNodeInfo? = w.root
+                    val livePkg = root?.packageName?.toString()
+                    if (livePkg.isNullOrBlank()) {
+                        try { root?.recycle() } catch (e: Exception) {}
+                        root = null
+                        pkgCache.remove(w.id)
+                        nativeCaptionCache.remove(w.id)
+                        continue
                     }
-                    if (pkg.isNullOrEmpty() || pkg == ctx.packageName) continue
+                    if (pkgCache[w.id] != livePkg) nativeCaptionCache.remove(w.id)
+                    pkgCache[w.id] = livePkg
                     seenIds.add(w.id)
-                    // Native/system caption buttons take precedence when they
-                    // are exposed through the accessibility tree. This keeps
-                    // one control set instead of stacking a second close button.
-                    if (nativeCaptionCache[w.id] == true) continue
-                    cands.add(Cand(w.id, w.layer, b, pkg))
+
+                    // Never decorate DevDex's own dock/menu/activity windows.
+                    if (livePkg == ctx.packageName) {
+                        try { root?.recycle() } catch (e: Exception) {}
+                        root = null
+                        nativeCaptionCache.remove(w.id)
+                        continue
+                    }
+
+                    val hasNativeCaption = if (!nativeCaptionCache.containsKey(w.id)) {
+                        if (root != null) {
+                            val detected = hasNativeCaptionControls(root, b)
+                            root = null // hasNativeCaptionControls recycles the node tree
+                            nativeCaptionCache[w.id] = detected
+                            detected
+                        } else {
+                            false
+                        }
+                    } else {
+                        try { root?.recycle() } catch (e: Exception) {}
+                        root = null
+                        nativeCaptionCache[w.id] == true
+                    }
+                    if (hasNativeCaption) continue
+                    cands.add(Cand(w.id, w.layer, b, livePkg))
                 } finally {
                     try { w.recycle() } catch (e: Exception) {}
                 }
@@ -218,11 +238,17 @@ class WindowControlsManager(
             }
             val perPkgCount = HashMap<String, Int>()
             val seenTaskIds = HashSet<Int>()
-            val seenUnresolvedPackages = HashSet<String>()
             val sorted = topLevelCandidates.sortedByDescending { it.layer }   // top-most first
             val pillH = dp(30)
             val controlOpacity = (prefs.getString("window_controls_opacity", "0.9")
                 ?.toFloatOrNull() ?: 0.9f).coerceIn(0.15f, 1f)
+            val dockHeightPx = dockHeight().coerceIn(0, dispH)
+            val dockSlop = dp(8)
+            val dockBounds = if (DockPositionUtils.get(prefs) == DockPositionUtils.Position.TOP) {
+                Rect(0, 0, dispW, (dockHeightPx + dockSlop).coerceAtMost(dispH))
+            } else {
+                Rect(0, (dispH - dockHeightPx - dockSlop).coerceAtLeast(0), dispW, dispH)
+            }
 
             val alive = HashSet<Int>()
             for (c in sorted) {
@@ -230,15 +256,11 @@ class WindowControlsManager(
                 perPkgCount[c.pkg] = idx + 1
                 val taskId = taskIdFor(c.pkg, idx)
 
-                // Dialogs/popups can appear as extra TYPE_APPLICATION windows
-                // for the same task. Only one control group should be drawn
-                // for each real task; if the task ID is inaccessible, show
-                // one group per package rather than duplicating Close buttons.
-                if (taskId != -1) {
-                    if (!seenTaskIds.add(taskId)) continue
-                } else {
-                    if (!seenUnresolvedPackages.add(c.pkg)) continue
-                }
+                // Do not show controls for an unidentified task. Those controls
+                // cannot resize and often cannot close anything, which looks like
+                // an intermittent "ghost X" to the user.
+                if (taskId < 0) continue
+                if (!seenTaskIds.add(taskId)) continue
 
                 val pill = pills.getOrPut(c.id) { createPill() }
                 alive.add(c.id)
@@ -267,9 +289,15 @@ class WindowControlsManager(
                     .coerceIn(0, (dispW - pw).coerceAtLeast(0))
                 val y = (c.bounds.top + dp(2)).coerceIn(0, (dispH - pillH).coerceAtLeast(0))
 
-                // hide the pill when a window that is above this one overlaps it
+                // Never leave a control half-hidden behind the dock. That used to
+                // expose just the top of a pill (including its X), with touches
+                // intercepted by the dock underneath.
                 val pillRect = Rect(x, y, x + pw, y + pillH)
-                val covered = sorted.any { o -> o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect) }
+                val underDock = Rect.intersects(dockBounds, pillRect)
+                val coveredByWindow = sorted.any { o ->
+                    o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect)
+                }
+                val covered = underDock || coveredByWindow
 
                 pill.view.visibility = if (covered) View.GONE else View.VISIBLE
                 pill.params.x = x
@@ -399,7 +427,7 @@ class WindowControlsManager(
 
         val pill = Pill(row, lp, max)
 
-        max.setOnClickListener { onMaximize(pill) }
+        max.setOnClickListener { showResizeMenu(pill) }
         close.setOnClickListener { onClose(pill) }
         return pill
     }
@@ -415,9 +443,19 @@ class WindowControlsManager(
             // Resolve through ShellManager/Shizuku/Root before deciding that no
             // task can be closed. Never force-stop the package here: Close Window
             // must not terminate the whole app session.
-            val taskId = if (originalTaskId != -1) originalTaskId
+            var taskId = if (originalTaskId != -1) originalTaskId
                 else AppUtils.findTaskIdViaPrivilegedShell(ctx, pkg, taskIndex)
-            val closed = taskId != -1 && AppUtils.closeTask(ctx, taskId)
+            var closed = taskId != -1 && AppUtils.closeTask(ctx, taskId)
+            // The task list can be stale while Android is recreating a window.
+            // If removing the mapped task failed, resolve it again by package and
+            // retry once before surfacing a failure to the user.
+            if (!closed) {
+                val refreshedTaskId = AppUtils.findTaskIdViaPrivilegedShell(ctx, pkg, taskIndex)
+                if (refreshedTaskId >= 0 && refreshedTaskId != taskId) {
+                    taskId = refreshedTaskId
+                    closed = AppUtils.closeTask(ctx, taskId)
+                }
+            }
             handler.post {
                 if (!closed) {
                     val shizuku = ShizukoManager.getInstance(ctx)
@@ -438,16 +476,38 @@ class WindowControlsManager(
         }
     }
 
-    private fun onMaximize(p: Pill) {
+    private fun showResizeMenu(p: Pill) {
+        if (p.taskId < 0) {
+            Toast.makeText(ctx, R.string.window_task_not_found, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val menu = PopupMenu(ctx, p.maxBtn)
+        menu.menu.add(0, 25, 0, ctx.getString(R.string.window_resize_25))
+        menu.menu.add(0, 50, 1, ctx.getString(R.string.window_resize_50))
+        menu.menu.add(0, 100, 2, ctx.getString(R.string.window_resize_fullscreen))
+        menu.setOnMenuItemClickListener { item ->
+            onResizePreset(p, item.itemId)
+            true
+        }
+        try {
+            menu.show()
+        } catch (e: Exception) {
+            Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun onResizePreset(p: Pill, percent: Int) {
         val taskId = p.taskId
-        if (taskId == -1) return
-        val mode = if (p.isMax) "standard" else "maximized"
+        if (taskId < 0) return
         val dh = dockHeight()
+        val targetDisplayId = displayId()
         io {
-            val resized = AppUtils.resizeTask(ctx, mode, taskId, dh)
+            val resized = AppUtils.resizeTaskToPreset(ctx, taskId, percent, dh, targetDisplayId)
             handler.post {
-                if (!resized) Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
-                handler.postDelayed({ scheduleUpdate() }, 300)
+                if (!resized) {
+                    Toast.makeText(ctx, R.string.window_resize_failed, Toast.LENGTH_SHORT).show()
+                }
+                handler.postDelayed({ scheduleUpdate(immediate = true) }, 300)
             }
         }
     }

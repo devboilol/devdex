@@ -144,6 +144,11 @@
             android:title="@string/hide_system_bars_title"
             android:summary="@string/hide_system_bars_summary"
             android:defaultValue="true" />
+        <SwitchPreferenceCompat
+            android:key="desktop_double_tap_to_sleep"
+            android:title="@string/desktop_double_tap_to_sleep_title"
+            android:summary="@string/desktop_double_tap_to_sleep_summary"
+            android:defaultValue="true" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/desktop">

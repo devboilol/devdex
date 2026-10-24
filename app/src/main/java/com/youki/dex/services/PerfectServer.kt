@@ -1114,6 +1114,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
                             .setPackage(packageName)
                             .putExtra("action", ACTION_SHOW_NOTIFICATION_BAR))
                     }
+                    "lock_screen" -> lockScreen()
                     "disable_self" -> {
                         try { if (appMenuVisible) hideAppMenu() } catch (e: Exception) {}
                         try { if (qsPanelVisible) toggleQsPanel() } catch (e: Exception) {}

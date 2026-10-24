@@ -772,6 +772,55 @@ object AppUtils {
     }
 
     /**
+     * Resize an existing freeform task to one of the explicit desktop presets.
+     * 25 and 50 refer to the fraction of usable screen area; the window keeps
+     * the display aspect ratio. 100 switches the task to Android fullscreen mode.
+     */
+    fun resizeTaskToPreset(
+        context: Context,
+        taskId: Int,
+        percent: Int,
+        dockHeight: Int,
+        displayId: Int = Display.DEFAULT_DISPLAY
+    ): Boolean {
+        if (taskId < 0) return false
+        val dm = DeviceUtils.getDisplayMetrics(context, displayId)
+        if (percent >= 100) {
+            if (runTaskShellCommand(context, "am task set-windowing-mode $taskId 1")) return true
+            // Some vendor shells reject a windowing-mode change but accept an
+            // edge-to-edge resize. This fallback still gives a useful result.
+            return resizeTaskToBounds(context, taskId, Rect(0, 0, dm.widthPixels, dm.heightPixels))
+        }
+
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val statusHeight = DeviceUtils.getStatusBarHeight(context).coerceAtLeast(0)
+        val navHeight = DeviceUtils.getNavBarHeight(context).coerceAtLeast(0)
+        val safeDockHeight = dockHeight.coerceAtLeast(0)
+        val dockAtTop = DockPositionUtils.get(prefs) == DockPositionUtils.Position.TOP
+        val safeTop = if (dockAtTop) maxOf(statusHeight, safeDockHeight) else statusHeight
+        val safeBottom = if (dockAtTop) {
+            dm.heightPixels - navHeight
+        } else {
+            dm.heightPixels - maxOf(safeDockHeight, navHeight)
+        }
+        val usableHeight = (safeBottom - safeTop).coerceAtLeast(1)
+        val scale = kotlin.math.sqrt(percent.coerceIn(25, 50) / 100f)
+        val targetWidth = (dm.widthPixels * scale).toInt().coerceIn(1, dm.widthPixels)
+        val targetHeight = (usableHeight * scale).toInt().coerceIn(1, usableHeight)
+        val left = ((dm.widthPixels - targetWidth) / 2).coerceAtLeast(0)
+        val top = safeTop + ((usableHeight - targetHeight) / 2).coerceAtLeast(0)
+        val bounds = Rect(left, top, left + targetWidth, top + targetHeight)
+
+        // Make sure the task is in freeform mode before assigning partial bounds.
+        if (runTaskShellCommand(context, "am task set-windowing-mode $taskId 5")) {
+            try { Thread.sleep(120) } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        return resizeTaskToBounds(context, taskId, bounds)
+    }
+
+    /**
      * Moves/resizes [taskId] to exactly [bounds] (used by window controls).
      * False means every available shell route was rejected.
      */

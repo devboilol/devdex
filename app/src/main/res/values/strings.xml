@@ -1100,4 +1100,10 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="window_controls_enabled_summary">Show resize and close buttons for floating app windows.</string>
     <string name="window_controls_opacity_title">Window control opacity</string>
     <string name="window_controls_opacity_summary">Adjust the transparency of the resize/close control group (100% = solid).</string>
+    <string name="window_resize_25">25% of screen (quarter area)</string>
+    <string name="window_resize_50">50% of screen (half area)</string>
+    <string name="window_resize_fullscreen">Full screen</string>
+    <string name="desktop_double_tap_to_sleep_title">Double-tap desktop to turn screen off</string>
+    <string name="desktop_double_tap_to_sleep_summary">Double-tap an empty area of the desktop to lock the screen.</string>
+    <string name="double_tap_sleep_requires_service">Enable DevDex Accessibility Service or Device Admin to use this gesture.</string>
 </resources>
