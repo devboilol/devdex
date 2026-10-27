@@ -374,7 +374,7 @@
     <string name="experimental_freeform_title">Bật cửa sổ tự do thử nghiệm</string>
     <string name="experimental_freeform_summary">Dành cho ROM ẩn chế độ cửa sổ tự do. Cần Shizuku hoặc Root và thường phải khởi động lại máy. Không bảo đảm hoạt động trên mọi ROM của nhà sản xuất.</string>
     <string name="adopt_external_app_windows_title">Tự tiếp nhận cửa sổ ứng dụng bên ngoài (thử nghiệm)</string>
-    <string name="adopt_external_app_windows_summary">Khi một ứng dụng bên thứ ba tương thích trở thành ứng dụng phía trước ngoài DevDex, thử chuyển task sang cửa sổ tự do với diện tích khoảng 50% vùng màn hình sử dụng được. Không thể xác định chắc chắn ứng dụng được mở từ launcher nào và có thể tác động cả ứng dụng được chuyển lại lên trước. Cần ROM hỗ trợ freeform và quyền shell, Shizuku hoặc Root phù hợp. Mặc định tắt.</string>
+    <string name="adopt_external_app_windows_summary">Khi m mở ứng dụng bên thứ ba tương thích từ Home launcher, DevDex sẽ yêu cầu mở activity chính bằng tùy chọn freeform rồi thử resize task còn khoảng 50% vùng màn hình sử dụng được. Việc nhận diện chuyển tiếp Home → ứng dụng chỉ là phỏng đoán; một số app có thể quay về màn hình chính. Cần ROM hỗ trợ freeform; có thể cần shell, Shizuku hoặc Root để resize. Mặc định tắt.</string>
     <string name="experimental_freeform_permission_title">Không thể thay đổi thiết lập đa nhiệm</string>
     <string name="experimental_freeform_permission_message">DevDex không ghi được thiết lập cửa sổ tự do của Android. Hãy kiểm tra Shizuku đang chạy và đã cấp quyền cho DevDex, hoặc cấp Root. Nếu ROM chặn các thiết lập này, cửa sổ tự do có thể không khả dụng.</string>
     <string name="experimental_freeform_reboot_title">Cần khởi động lại</string>
