@@ -114,6 +114,7 @@ class WindowControlsManager(
         removeAll()
         minimized.clear()
         homeMinimized.clear()
+        launchablePackageCache.clear()
     }
 
     /** If [taskId] was minimized by this manager, restore it and return true. */
@@ -184,17 +185,23 @@ class WindowControlsManager(
         "com.miui.packageinstaller.",
         "com.miui.global.packageinstaller."
     )
+    // Updates can be triggered rapidly while a window is dragged. Cache only
+    // positive launcher-entry lookups so PackageManager is not queried on every frame.
+    private val launchablePackageCache = HashSet<String>()
 
     private fun isEligibleWindowPackage(pkg: String, homePackage: String): Boolean {
         if (pkg.isBlank() || pkg == ctx.packageName || pkg == homePackage) return false
         if (pkg in excludedSurfacePackages || excludedSurfacePrefixes.any(pkg::startsWith)) return false
-        return try {
+        if (launchablePackageCache.contains(pkg)) return true
+        val launchable = try {
             // A real app's primary launcher activity is the baseline. This
             // excludes many non-launchable helper/popup packages by design.
             ctx.packageManager.getLaunchIntentForPackage(pkg) != null
         } catch (e: Exception) {
             false
         }
+        if (launchable) launchablePackageCache.add(pkg)
+        return launchable
     }
 
     private fun area(bounds: Rect): Long =
@@ -237,9 +244,9 @@ class WindowControlsManager(
             }
 
             val cands = ArrayList<Cand>()
-            // Keep a geometry-only list of every visible app window, including
-            // excluded system surfaces and popup windows. It is used only to hide
-            // the main window's controls when something above it covers the pill.
+            // Keep geometry for visible app/system/IME/divider windows, including
+            // excluded system surfaces and popup windows. This list only hides
+            // the main window's controls when a higher layer covers the pill.
             val windowBlockers = ArrayList<Cand>()
             val seenIds = HashSet<Int>()
             val windows = readWindows()
