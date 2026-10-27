@@ -9,7 +9,7 @@ DevDex's custom Close / Resize / Opacity control group should decorate the main 
 - Skip DevDex itself, the active Home launcher, Android System UI, Settings, permission controllers, package installers, Intent Resolver surfaces, and known MIUI/Google system prompt packages.
 - Only consider packages that expose a normal launcher entry point.
 - Before assigning per-package task indexes, drop a candidate when a larger, lower-layer window from the same package contains it or substantially overlaps it. This prevents app dialogs, dropdowns, and popup surfaces from receiving their own control group while preserving similarly sized, independent freeform instances.
-- Keep a separate geometry-only list of all visible application windows, including excluded system surfaces and filtered popups. When one of those higher-layer windows covers the main window's pill, temporarily hide the pill until the obstructing popup goes away.
+- Keep a separate geometry-only list of visible application, system, input-method, and split-screen-divider windows. These surfaces can hide the main window's pill when they overlap it, but never receive controls themselves.
 - When a previously managed app window becomes fullscreen, preserve its controls only for that same Accessibility window ID. A different fullscreen window from the same package must not inherit the old window's controls.
 - Prefer hiding controls on ambiguous/system surfaces over placing Close or Resize over a permission prompt.
 
