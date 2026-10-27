@@ -10,10 +10,9 @@
     action lives on fab_permissions below instead — a small floating action button, not a
     bar.
 
-    Simple, calm structure on purpose: a plain header row (icon + title text, no collapsing
-    cover-photo mechanics) sitting above the preference list. The whole screen fades and
-    rises in on entrance (see MainActivity.animateSettingsEntrance) for a soft, non-jarring
-    open rather than the plain hard-cut appearance of the original.
+    DevDex uses a compact brand header and a consistent preference surface, with no large
+    hero image competing with the desktop-first settings content. The whole screen fades
+    and rises in on entrance (see MainActivity.animateSettingsEntrance).
 -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
