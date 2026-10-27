@@ -4855,6 +4855,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     override fun onDestroy() {
         uiReady = false
         initHandler.removeCallbacksAndMessages(null)
+        try { externalLaunchAdoption?.destroy() } catch (e: Exception) {}
+        externalLaunchAdoption = null
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = null
         stopMediaControls()
