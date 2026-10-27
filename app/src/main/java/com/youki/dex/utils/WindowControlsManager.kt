@@ -218,9 +218,16 @@ class WindowControlsManager(
         if (other.layer >= candidate.layer) return false
         val candidateArea = area(candidate.bounds)
         val otherArea = area(other.bounds)
-        if (candidateArea <= 0L || otherArea * 100L < candidateArea * 125L) return false
+        if (candidateArea <= 0L || otherArea <= candidateArea) return false
 
-        if (other.bounds.contains(candidate.bounds)) return true
+        // Even a nearly full-window dialog should be treated as a child surface
+        // when its bounds are contained by a slightly larger same-app window.
+        val strictlyLargerContainer = other.bounds.contains(candidate.bounds) &&
+            (other.bounds.width() > candidate.bounds.width() ||
+                other.bounds.height() > candidate.bounds.height())
+        if (strictlyLargerContainer) return true
+
+        if (otherArea * 100L < candidateArea * 125L) return false
 
         val intersection = Rect()
         if (!intersection.setIntersect(other.bounds, candidate.bounds)) return false
