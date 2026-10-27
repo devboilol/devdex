@@ -69,14 +69,26 @@
 
             <EditText
                 android:id="@+id/menu_et"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:background="@null"
                 android:hint="@string/search"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:singleLine="true"
-                android:textSize="17sp" />
+                android:textSize="16sp" />
+
+            <ImageButton
+                android:id="@+id/menu_search_clear_btn"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/clear_search"
+                android:padding="4dp"
+                android:src="@drawable/ic_close"
+                android:tint="?attr/colorOnSurfaceVariant"
+                android:visibility="gone" />
         </LinearLayout>
 
     </LinearLayout>
