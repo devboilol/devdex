@@ -2200,6 +2200,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             launchMode = "fullscreen"
         }
 
+        // Register DevDex-originated launches so the optional external-adoption
+        // experiment does not overwrite this app's explicitly chosen launch mode.
+        if (packageName != null) externalLaunchAdoption?.noteDevDexLaunch(packageName)
+
         // OEMs differ in which windowing/display options they permit. If
         // building the enhanced options itself fails, keep launching with
         // platform defaults rather than losing the app launch entirely.
