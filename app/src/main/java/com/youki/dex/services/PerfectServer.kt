@@ -113,6 +113,7 @@ import com.youki.dex.utils.ColorUtils
 import com.youki.dex.utils.CursorOverlayManager
 import com.youki.dex.utils.DeepShortcutManager
 import com.youki.dex.utils.DeviceUtils
+import com.youki.dex.utils.ExternalLaunchAdoptionManager
 import com.youki.dex.utils.IconPackUtils
 import com.youki.dex.utils.MultiUserManager
 import com.youki.dex.utils.OnSwipeListener
@@ -445,6 +446,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
     private var windowControls: com.youki.dex.utils.WindowControlsManager? = null
+    private var externalLaunchAdoption: ExternalLaunchAdoptionManager? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -481,6 +483,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     /** Undo whatever a failed/partial initDock() managed to register or add. */
     private fun teardownPartialUi() {
+        try { externalLaunchAdoption?.destroy() } catch (e: Exception) {}
+        externalLaunchAdoption = null
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = null
         try {
@@ -565,6 +569,16 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         else Display.DEFAULT_DISPLAY
 
     private fun startWindowControls() {
+        try { externalLaunchAdoption?.destroy() } catch (e: Exception) {}
+        externalLaunchAdoption = ExternalLaunchAdoptionManager(
+            service = this,
+            prefs = sharedPreferences,
+            dockHeightPx = { dockHeight },
+            onWindowAdopted = {
+                windowControls?.scheduleUpdate(immediate = true)
+                if (::tasksGv.isInitialized) updateRunningTasks(true)
+            }
+        )
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = com.youki.dex.utils.WindowControlsManager(
             service = this,
@@ -1586,6 +1600,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             // TYPE_WINDOW_STATE_CHANGED يطلق لما تنقر على نافذة وتعطيها الـ focus
             // هذا يسمح لنا نعرف أي تطبيق "نشط" الآن حتى في الـ freeform
             val pkg = event.packageName?.toString() ?: return
+            externalLaunchAdoption?.onForegroundPackage(pkg)
             val launcherPackage = AppUtils.getCurrentLauncher(packageManager)
             if (pkg == packageName || pkg == launcherPackage) {
                 if (AppUtils.currentApp.isNotEmpty()) {
