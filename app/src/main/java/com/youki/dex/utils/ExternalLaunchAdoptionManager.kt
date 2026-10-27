@@ -221,9 +221,7 @@ internal class ExternalLaunchAdoptionManager(
             // Ignore transient overlays, keyboards, and service-only packages
             // that do not provide a normal launcher entry point.
             service.packageManager.getLaunchIntentForPackage(pkg) != null
-        } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+        } catch (e: Exception) {
             false
         }
     }
@@ -238,17 +236,13 @@ internal class ExternalLaunchAdoptionManager(
             tasks.firstOrNull {
                 it.baseActivity?.packageName == pkg || it.origActivity?.packageName == pkg
             }?.let { return it.id }
-        } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+        } catch (e: Exception) {
             Log.d(TAG, "Public task lookup unavailable for $pkg", e)
         }
 
         return try {
             AppUtils.findTaskIdViaPrivilegedShell(service, pkg)
-        } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+        } catch (e: Exception) {
             Log.d(TAG, "Privileged task lookup unavailable for $pkg", e)
             -1
         }
