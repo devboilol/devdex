@@ -71,6 +71,9 @@ class WindowControlsManager(
         var shownAtX = Int.MIN_VALUE
         var shownAtY = Int.MIN_VALUE
         var missingSince = 0L
+        // Debounce transient OEM accessibility geometry so one-frame blockers
+        // cannot make a stable window-control group rapidly disappear/reappear.
+        var coveredSince = 0L
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -208,6 +211,26 @@ class WindowControlsManager(
         bounds.width().coerceAtLeast(0).toLong() * bounds.height().coerceAtLeast(0).toLong()
 
     /**
+     * Some OEM builds report overlays as accessibility windows but briefly omit
+     * their root package while attaching/detaching. Match known pill geometry as
+     * a second guard against the controls being registered as their own blocker.
+     */
+    private fun isManagedControlOverlay(bounds: Rect): Boolean {
+        val positionTolerance = dp(12)
+        val widthTolerance = dp(20)
+        val heightTolerance = dp(12)
+        return pills.values.any { pill ->
+            val width = pill.view.measuredWidth.takeIf { it > 0 } ?: pill.view.width
+            val height = pill.view.measuredHeight.takeIf { it > 0 } ?: pill.view.height
+            width > 0 && height > 0 &&
+                kotlin.math.abs(bounds.left - pill.params.x) <= positionTolerance &&
+                kotlin.math.abs(bounds.top - pill.params.y) <= positionTolerance &&
+                kotlin.math.abs(bounds.width() - width) <= widthTolerance &&
+                kotlin.math.abs(bounds.height() - height) <= heightTolerance
+        }
+    }
+
+    /**
      * A dialog/popup is a child surface when a lower-layer window from the same
      * package contains it, or substantially overlaps it while being clearly
      * larger. Separate freeform instances of one app are retained when their
@@ -277,7 +300,9 @@ class WindowControlsManager(
                     val blockerRoot = try { w.root } catch (e: Exception) { null }
                     val blockerPackage = blockerRoot?.packageName?.toString()
                     try { blockerRoot?.recycle() } catch (e: Exception) {}
-                    if (blockerPackage != ctx.packageName) {
+                    val isOurOverlay = blockerPackage == ctx.packageName ||
+                        (blockerPackage.isNullOrBlank() && isManagedControlOverlay(b))
+                    if (!isOurOverlay) {
                         windowBlockers.add(Cand(w.id, w.layer, Rect(b), blockerPackage.orEmpty()))
                     }
                     if (!isApplicationWindow) continue
@@ -450,7 +475,17 @@ class WindowControlsManager(
                 val coveredByWindow = windowBlockers.any { o ->
                     o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect)
                 }
-                val covered = stillUnderDock || coveredByWindow
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (coveredByWindow) {
+                    if (pill.coveredSince == 0L) pill.coveredSince = now
+                } else {
+                    pill.coveredSince = 0L
+                }
+                // Dock geometry is deterministic and applies immediately. Window
+                // blockers are debounced to smooth transient HyperOS snapshots.
+                val coveredByStableWindow = coveredByWindow &&
+                    now - pill.coveredSince >= 180L
+                val covered = stillUnderDock || coveredByStableWindow
 
                 pill.view.visibility = if (covered) View.GONE else View.VISIBLE
                 pill.params.x = x
