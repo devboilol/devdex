@@ -1,0 +1,59 @@
+# External launch adoption / Tiếp nhận ứng dụng mở từ launcher bên ngoài
+
+## English
+
+### Purpose
+
+DevDex normally supplies freeform launch options only when an app is launched through DevDex. This opt-in experiment tries to adopt an eligible third-party task after it becomes the foreground app, including apps started from the device's stock launcher.
+
+Accessibility events do **not** identify which launcher started an app. As a result, this prototype watches eligible foreground apps and cannot reliably distinguish a fresh launch from returning to an existing app. It is intentionally disabled by default.
+
+### Enable and test
+
+1. Make sure DevDex's dock/accessibility service is running.
+2. Confirm freeform windows work on the ROM, and configure Shizuku/Root if your device requires privileged task operations.
+3. Open **Settings → Advanced → Multitasking compatibility**.
+4. Enable **Auto-adopt external app windows (experimental)**.
+5. Open a non-system app from the stock launcher and wait about a second. On success, DevDex tries to move its task into a freeform window occupying about 50% of the usable display area.
+6. Check maximize/restore, resize, close, and switching back to the stock launcher. Turn the option off to stop future attempts.
+
+### Safety and known limitations
+
+- This is best-effort and depends on HyperOS/Android allowing an existing task to change windowing mode.
+- Shell, Shizuku, or Root access may be required. Having Shizuku installed is not the same as granting DevDex permission.
+- It may affect an app when it is brought back to the foreground, because Android accessibility events do not expose the original launcher source.
+- A task that is not visible to available task APIs may not be found. The conversion can also be refused by the ROM or an app's orientation/windowing policy.
+- System UI, Settings, package installers, permission controllers, and the active Home launcher are excluded.
+- The current prototype attempts adoption on a per-task basis and does not guarantee multi-instance task selection when a ROM hides task IDs.
+- Do not use this feature to automate banking, payment, government, identity verification, or other security-sensitive apps. Test with ordinary apps on a secondary device first.
+
+This feature is an experiment, not a guarantee that every app can become a floating window. The device must allow freeform windowing for the conversion to work.
+
+## Tiếng Việt
+
+### Mục đích
+
+Thông thường, DevDex chỉ truyền tùy chọn mở cửa sổ tự do khi chính DevDex khởi chạy ứng dụng. Tính năng thử nghiệm này cố gắng tiếp nhận task của một ứng dụng bên thứ ba sau khi nó trở thành ứng dụng phía trước, kể cả khi người dùng mở app từ launcher gốc của thiết bị.
+
+Sự kiện Accessibility **không cho biết launcher nào đã khởi chạy ứng dụng**. Vì vậy, prototype này theo dõi ứng dụng đủ điều kiện khi chúng trở thành foreground và không thể phân biệt chắc chắn giữa một lần mở mới với việc quay lại ứng dụng đang chạy. Tính năng mặc định tắt.
+
+### Bật và kiểm thử
+
+1. Đảm bảo dock/dịch vụ Trợ năng của DevDex đang chạy.
+2. Xác nhận ROM hỗ trợ freeform; cấu hình Shizuku/Root nếu thiết bị cần quyền hệ thống để thao tác task.
+3. Mở **Cài đặt → Advanced → Tương thích đa nhiệm**.
+4. Bật **Tự tiếp nhận cửa sổ ứng dụng bên ngoài (thử nghiệm)**.
+5. Mở một ứng dụng không thuộc hệ thống từ launcher gốc và chờ khoảng một giây. Khi thành công, DevDex sẽ thử chuyển task thành cửa sổ tự do chiếm khoảng 50% diện tích vùng hiển thị có thể sử dụng.
+6. Kiểm tra phóng to/khôi phục, thay đổi kích thước, đóng cửa sổ và chuyển lại launcher gốc. Tắt tùy chọn để ngừng các lần thử tiếp theo.
+
+### An toàn và giới hạn đã biết
+
+- Đây là cơ chế best-effort; kết quả phụ thuộc việc HyperOS/Android có cho phép đổi chế độ cửa sổ của task đang chạy hay không.
+- Có thể cần quyền shell, Shizuku hoặc Root. Chỉ cài Shizuku chưa có nghĩa là DevDex đã được cấp quyền.
+- Tính năng có thể tác động khi một app được đưa trở lại foreground, vì Accessibility không tiết lộ nguồn launcher ban đầu.
+- Nếu các API task hiện có không thấy được task, DevDex có thể không tìm ra ID. ROM hoặc chính sách hướng màn hình/chế độ cửa sổ của ứng dụng cũng có thể từ chối chuyển đổi.
+- Giao diện hệ thống, Cài đặt, trình cài package, bộ điều khiển quyền và launcher Home đang hoạt động được loại trừ.
+- Prototype hiện xử lý theo task và không bảo đảm chọn đúng instance khi ROM che giấu task ID.
+- Không dùng tính năng này để tự động thay đổi cách hiển thị ứng dụng ngân hàng, thanh toán, dịch vụ chính phủ, xác minh danh tính hay ứng dụng nhạy cảm về bảo mật. Hãy thử với ứng dụng thông thường trên thiết bị phụ trước.
+
+Đây là tính năng thử nghiệm, không bảo đảm mọi app đều trở thành cửa sổ nổi. ROM phải thực sự cho phép freeform thì việc chuyển đổi mới hoạt động.
