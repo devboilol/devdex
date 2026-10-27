@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import android.view.Display
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -129,6 +130,8 @@ internal class ExternalLaunchAdoptionManager(
                 withContext(Dispatchers.Main) {
                     if (!destroyed && isEnabled()) onWindowAdopted()
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "External app adoption failed for $pkg", e)
             } finally {
@@ -166,6 +169,8 @@ internal class ExternalLaunchAdoptionManager(
                         trimTaskCache(devDexManagedTaskIds)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.d(TAG, "Could not register DevDex-launched task for $pkg", e)
                 synchronized(lock) {
@@ -216,7 +221,9 @@ internal class ExternalLaunchAdoptionManager(
             // Ignore transient overlays, keyboards, and service-only packages
             // that do not provide a normal launcher entry point.
             service.packageManager.getLaunchIntentForPackage(pkg) != null
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
             false
         }
     }
@@ -231,13 +238,17 @@ internal class ExternalLaunchAdoptionManager(
             tasks.firstOrNull {
                 it.baseActivity?.packageName == pkg || it.origActivity?.packageName == pkg
             }?.let { return it.id }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
             Log.d(TAG, "Public task lookup unavailable for $pkg", e)
         }
 
         return try {
             AppUtils.findTaskIdViaPrivilegedShell(service, pkg)
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
             Log.d(TAG, "Privileged task lookup unavailable for $pkg", e)
             -1
         }
