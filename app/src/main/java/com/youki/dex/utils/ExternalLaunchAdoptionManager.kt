@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.app.ActivityManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.LauncherApps
+import android.os.Process
 import android.util.Log
 import android.view.Display
 import kotlinx.coroutines.CancellationException
@@ -57,14 +59,35 @@ internal class ExternalLaunchAdoptionManager(
     private val lastAttemptAt = HashMap<String, Long>()
     private val adoptedTaskIds = LinkedHashMap<Int, String>()
     private val devDexManagedTaskIds = LinkedHashMap<Int, String>()
+    private var lastObservedPackage: String? = null
 
     @Volatile
     private var destroyed = false
 
     fun onForegroundPackage(packageName: String?) {
-        if (destroyed || !isEnabled()) return
+        if (destroyed) return
         val pkg = packageName?.trim().orEmpty()
-        if (!isEligiblePackage(pkg)) return
+        if (pkg.isBlank()) return
+
+        // Track every observed package, including Home and system surfaces, even
+        // while this opt-in feature is disabled. This lets us distinguish a likely
+        // Home-icon launch from a switch back to an app via Recents/notifications.
+        val previousPackage = synchronized(lock) {
+            val previous = lastObservedPackage
+            lastObservedPackage = pkg
+            previous
+        }
+        if (!isEnabled() || !isEligiblePackage(pkg)) return
+
+        val launcherPackage = try {
+            AppUtils.getCurrentLauncher(service.packageManager)
+        } catch (e: Exception) {
+            ""
+        }
+        // A TYPE_WINDOW_STATE_CHANGED event does not encode the launch source.
+        // Home -> app is only a heuristic, but it avoids repeatedly reopening an
+        // app every time the user returns to it from Recents or another surface.
+        if (launcherPackage.isBlank() || previousPackage != launcherPackage) return
 
         val now = System.currentTimeMillis()
         val maySchedule = synchronized(lock) {
@@ -84,51 +107,57 @@ internal class ExternalLaunchAdoptionManager(
         scope.launch {
             try {
                 delay(ADOPTION_DELAY_MS)
-                if (destroyed || !isEnabled()) return@launch
+                if (destroyed || !isEnabled() || !isLatestForeground(pkg)) return@launch
+
+                // First replay the stock launch through the same ActivityOptions
+                // freeform path that works for apps opened by DevDex. Shell task
+                // conversion alone is rejected on some HyperOS builds; the native
+                // launch-options route is the fallback that does not require
+                // Shizuku/Root just to request freeform.
+                val launchRequested = requestFreeformLaunch(pkg)
+                if (launchRequested) delay(450L)
+
+                if (destroyed || !isEnabled() || !isLatestForeground(pkg)) return@launch
 
                 var taskId = resolveTaskId(pkg)
                 if (taskId < 0) {
                     // Some ROMs publish Accessibility events before their task list
                     // catches up. Retry lookup once after the transition settles.
                     delay(350L)
-                    if (destroyed || !isEnabled()) return@launch
+                    if (destroyed || !isEnabled() || !isLatestForeground(pkg)) return@launch
                     taskId = resolveTaskId(pkg)
                 }
-                if (taskId < 0) {
-                    Log.d(TAG, "No task ID available yet for $pkg")
-                    return@launch
-                }
 
-                val alreadyManaged = synchronized(lock) {
-                    adoptedTaskIds[taskId] == pkg || devDexManagedTaskIds[taskId] == pkg
-                }
-                if (alreadyManaged) return@launch
-
-                // 50 means approximately half of the usable screen area, not half
-                // of each dimension. AppUtils applies the freeform mode and bounds
-                // through the available shell/Shizuku/Root routes.
-                val resized = AppUtils.resizeTaskToPreset(
-                    service,
-                    taskId,
-                    50,
-                    dockHeightPx(),
-                    Display.DEFAULT_DISPLAY
-                )
-                if (!resized) {
-                    Log.w(
-                        TAG,
-                        "Could not adopt task $taskId ($pkg); ROM, permissions, or app policy may reject freeform"
+                var resized = false
+                if (taskId >= 0) {
+                    resized = AppUtils.resizeTaskToPreset(
+                        service,
+                        taskId,
+                        50,
+                        dockHeightPx(),
+                        Display.DEFAULT_DISPLAY
                     )
-                    return@launch
+                    if (resized) {
+                        synchronized(lock) {
+                            adoptedTaskIds[taskId] = pkg
+                            trimTaskCache(adoptedTaskIds)
+                        }
+                        Log.i(TAG, "Adopted foreground task $taskId ($pkg) as a freeform window")
+                    } else {
+                        Log.w(TAG, "Task resize rejected for $taskId ($pkg); launch-options fallback requested=$launchRequested")
+                    }
+                } else {
+                    Log.w(TAG, "No task ID available after freeform launch request for $pkg")
                 }
 
-                synchronized(lock) {
-                    adoptedTaskIds[taskId] = pkg
-                    trimTaskCache(adoptedTaskIds)
-                }
-                Log.i(TAG, "Adopted foreground task $taskId ($pkg) as a freeform window")
-                withContext(Dispatchers.Main) {
-                    if (!destroyed && isEnabled()) onWindowAdopted()
+                // The launch-options request itself may have changed the task mode
+                // even if HyperOS refuses the follow-up shell resize. Refresh the
+                // dock/task controls in either case and leave the result to device
+                // verification rather than falsely reporting a guaranteed success.
+                if (launchRequested || resized) {
+                    withContext(Dispatchers.Main) {
+                        if (!destroyed && isEnabled()) onWindowAdopted()
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -137,6 +166,35 @@ internal class ExternalLaunchAdoptionManager(
             } finally {
                 synchronized(lock) { pendingPackages.remove(pkg) }
             }
+        }
+    }
+
+    private fun isLatestForeground(packageName: String): Boolean =
+        synchronized(lock) { lastObservedPackage == packageName }
+
+    private fun requestFreeformLaunch(packageName: String): Boolean {
+        return try {
+            val launchIntent = service.packageManager.getLaunchIntentForPackage(packageName)
+                ?: return false
+            val component = launchIntent.component ?: return false
+            val launcherApps = service.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            val options = AppUtils.makeActivityOptions(
+                service,
+                "freeform",
+                dockHeightPx(),
+                Display.DEFAULT_DISPLAY
+            )
+            launcherApps.startMainActivity(
+                component,
+                Process.myUserHandle(),
+                null,
+                options.toBundle()
+            )
+            Log.i(TAG, "Requested freeform ActivityOptions launch for $packageName")
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not request freeform ActivityOptions launch for $packageName", e)
+            false
         }
     }
 
@@ -188,6 +246,7 @@ internal class ExternalLaunchAdoptionManager(
         synchronized(lock) {
             pendingPackages.clear()
             pendingDevDexPackages.clear()
+            lastObservedPackage = null
             lastAttemptAt.clear()
             adoptedTaskIds.clear()
             devDexManagedTaskIds.clear()
