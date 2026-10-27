@@ -270,10 +270,16 @@ class WindowControlsManager(
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
                     // Geometry from app and system surfaces blocks controls when
-                    // they overlap the pill. Only application windows themselves
-                    // are eligible to receive a control group; system/input-method
-                    // windows are blockers only.
-                    windowBlockers.add(Cand(w.id, w.layer, Rect(b), ""))
+                    // they overlap the pill. Never treat DevDex's own overlay as a
+                    // blocker: some ROMs expose TYPE_APPLICATION_OVERLAY through the
+                    // accessibility window list, which otherwise makes the pill hide
+                    // itself, reappear, and flicker on every update.
+                    val blockerRoot = try { w.root } catch (e: Exception) { null }
+                    val blockerPackage = blockerRoot?.packageName?.toString()
+                    try { blockerRoot?.recycle() } catch (e: Exception) {}
+                    if (blockerPackage != ctx.packageName) {
+                        windowBlockers.add(Cand(w.id, w.layer, Rect(b), blockerPackage.orEmpty()))
+                    }
                     if (!isApplicationWindow) continue
                     // Avoid decorating unrelated fullscreen activities, but preserve
                     // controls for a window DevDex was already managing. In particular,
