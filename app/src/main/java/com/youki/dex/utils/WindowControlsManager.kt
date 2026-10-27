@@ -237,6 +237,10 @@ class WindowControlsManager(
             }
 
             val cands = ArrayList<Cand>()
+            // Keep a geometry-only list of every visible app window, including
+            // excluded system surfaces and popup windows. It is used only to hide
+            // the main window's controls when something above it covers the pill.
+            val windowBlockers = ArrayList<Cand>()
             val seenIds = HashSet<Int>()
             val windows = readWindows()
             for (w in windows) {
@@ -246,6 +250,10 @@ class WindowControlsManager(
                     if (b.width() <= 0 || b.height() <= 0) continue
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
+                    // Record the geometry before package filtering. A system or
+                    // in-app popup must not get controls, but it must still hide a
+                    // control pill underneath it while the popup is on screen.
+                    windowBlockers.add(Cand(w.id, w.layer, Rect(b), ""))
                     // Avoid decorating unrelated fullscreen activities, but preserve
                     // controls for a window DevDex was already managing. In particular,
                     // the "Full screen" preset must not make the Close button disappear.
@@ -412,7 +420,7 @@ class WindowControlsManager(
 
                 val pillRect = Rect(x, y, x + pw, y + pillH)
                 val stillUnderDock = Rect.intersects(dockBounds, pillRect)
-                val coveredByWindow = sorted.any { o ->
+                val coveredByWindow = windowBlockers.any { o ->
                     o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect)
                 }
                 val covered = stillUnderDock || coveredByWindow
