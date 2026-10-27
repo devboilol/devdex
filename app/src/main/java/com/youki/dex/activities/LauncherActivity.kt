@@ -254,15 +254,15 @@ open class LauncherActivity : BaseFontScaleActivity(), SharedPreferences.OnShare
 
     override fun onResume() {
         super.onResume()
-        // FIX: serviceBtn ("Let's start") defaults to VISIBLE in XML and is
+        // FIX: desktopEmptyState defaults to VISIBLE in XML and is
         // only hidden when DockService broadcasts DOCK_SERVICE_CONNECTED.
         // But if LauncherActivity is recreated (config change, PiP exit,
         // fullscreen app return, display resize…) while DockService is
-        // already running, it won't re-broadcast — so serviceBtn stays
+        // already running, it won't re-broadcast — so the empty-state card stays
         // visible forever even though the dock is alive and working, giving
         // the "صدمة نفسية / Let's start on every return" symptom.
         // Fix: check service state directly on every resume and hide the
-        // button immediately if the service is already up.
+        // complete empty-state card if the service is already up.
         if (com.youki.dex.utils.DeviceUtils.isAccessibilityServiceEnabled(this)) {
             desktopEmptyState.visibility = View.GONE
             // Also ask the dock to re-show itself in case it hid on pause
