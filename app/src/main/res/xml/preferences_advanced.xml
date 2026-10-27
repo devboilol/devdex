@@ -127,6 +127,12 @@
             android:summary="@string/experimental_freeform_summary" />
 
         <SwitchPreferenceCompat
+            android:key="adopt_external_app_windows"
+            android:defaultValue="false"
+            android:title="@string/adopt_external_app_windows_title"
+            android:summary="@string/adopt_external_app_windows_summary" />
+
+        <SwitchPreferenceCompat
             android:key="ignore_orientation_requests"
             android:defaultValue="false"
             android:title="@string/ignore_orientation_requests_title"

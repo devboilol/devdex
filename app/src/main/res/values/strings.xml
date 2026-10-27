@@ -314,6 +314,8 @@
     <string name="multitasking_compatibility_category">Multitasking compatibility</string>
     <string name="experimental_freeform_title">Enable experimental freeform windows</string>
     <string name="experimental_freeform_summary">For ROMs that hide freeform mode. Uses Android global settings, requires Shizuku or Root, and normally requires a reboot. This is not guaranteed on every manufacturer ROM.</string>
+    <string name="adopt_external_app_windows_title">Auto-adopt external app windows (experimental)</string>
+    <string name="adopt_external_app_windows_summary">When you open an eligible third-party app from the Home launcher, DevDex re-requests its main activity with freeform launch options, then tries to resize the task to about 50% of usable screen area. The Home-to-app detection is a heuristic, and some apps may return to their main screen. Requires freeform support; shell, Shizuku, or Root may be needed for resizing. Off by default.</string>
     <string name="experimental_freeform_permission_title">Could not change multitasking settings</string>
     <string name="experimental_freeform_permission_message">DevDex could not write Android\'s freeform settings. Make sure Shizuku is running and DevDex is authorized, or grant Root access. If the ROM blocks these settings, freeform windows may not be available.</string>
     <string name="experimental_freeform_reboot_title">Restart required</string>
@@ -427,6 +429,7 @@ To uninstall, remove Device Administrator permission first.</string>
     <!-- App menu -->
     <string name="user">User</string>
     <string name="search">Search…</string>
+    <string name="clear_search">Clear search</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="search_for">Search for</string>
     <string name="on_google">on Google</string>

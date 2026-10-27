@@ -113,6 +113,7 @@ import com.youki.dex.utils.ColorUtils
 import com.youki.dex.utils.CursorOverlayManager
 import com.youki.dex.utils.DeepShortcutManager
 import com.youki.dex.utils.DeviceUtils
+import com.youki.dex.utils.ExternalLaunchAdoptionManager
 import com.youki.dex.utils.IconPackUtils
 import com.youki.dex.utils.MultiUserManager
 import com.youki.dex.utils.OnSwipeListener
@@ -445,6 +446,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         }
     }
     private var windowControls: com.youki.dex.utils.WindowControlsManager? = null
+    private var externalLaunchAdoption: ExternalLaunchAdoptionManager? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -481,6 +483,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
 
     /** Undo whatever a failed/partial initDock() managed to register or add. */
     private fun teardownPartialUi() {
+        try { externalLaunchAdoption?.destroy() } catch (e: Exception) {}
+        externalLaunchAdoption = null
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = null
         try {
@@ -565,6 +569,16 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         else Display.DEFAULT_DISPLAY
 
     private fun startWindowControls() {
+        try { externalLaunchAdoption?.destroy() } catch (e: Exception) {}
+        externalLaunchAdoption = ExternalLaunchAdoptionManager(
+            service = this,
+            prefs = sharedPreferences,
+            dockHeightPx = { dockHeight },
+            onWindowAdopted = {
+                windowControls?.scheduleUpdate(immediate = true)
+                if (::tasksGv.isInitialized) updateRunningTasks(true)
+            }
+        )
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = com.youki.dex.utils.WindowControlsManager(
             service = this,
@@ -1012,6 +1026,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             .inflate(R.layout.apps_menu, null) as LinearLayout
         searchEntry = appMenu.findViewById(R.id.search_entry)
         searchEt = appMenu.findViewById(R.id.menu_et)
+        val searchClearBtn = appMenu.findViewById<ImageButton>(R.id.menu_search_clear_btn)
         appsGv = appMenu.findViewById(R.id.menu_applist_lv)
         appsGv.setHasFixedSize(true)
         appsGv.layoutManager = GridLayoutManager(context, 5)
@@ -1050,8 +1065,18 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         // ✅ FIX: الضغط على أي مكان في الصف (الأيقونة + النص) يفتح البحث
         searchLayout.setOnClickListener { searchTv.performClick() }
 
+        // Lawnchair-inspired small UX polish: let users clear the current query in one tap.
+        // Keep focus and the keyboard open so they can immediately type a new query.
+        searchClearBtn.setOnClickListener {
+            searchEt.text?.clear()
+            searchEt.requestFocus()
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(searchEt, InputMethodManager.SHOW_IMPLICIT)
+        }
+
         searchEt.addTextChangedListener { text ->
             if (text != null) {
+                searchClearBtn.visibility = if (text.isNullOrEmpty()) View.GONE else View.VISIBLE
                 val appAdapter = appsGv.adapter as? AppAdapter ?: return@addTextChangedListener
                 appAdapter.filter(text.toString())
                 if (text.length > 1) {
@@ -1586,6 +1611,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             // TYPE_WINDOW_STATE_CHANGED يطلق لما تنقر على نافذة وتعطيها الـ focus
             // هذا يسمح لنا نعرف أي تطبيق "نشط" الآن حتى في الـ freeform
             val pkg = event.packageName?.toString() ?: return
+            externalLaunchAdoption?.onForegroundPackage(pkg)
             val launcherPackage = AppUtils.getCurrentLauncher(packageManager)
             if (pkg == packageName || pkg == launcherPackage) {
                 if (AppUtils.currentApp.isNotEmpty()) {
@@ -2173,6 +2199,10 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             }
             launchMode = "fullscreen"
         }
+
+        // Register DevDex-originated launches so the optional external-adoption
+        // experiment does not overwrite this app's explicitly chosen launch mode.
+        if (packageName != null) externalLaunchAdoption?.noteDevDexLaunch(packageName)
 
         // OEMs differ in which windowing/display options they permit. If
         // building the enhanced options itself fails, keep launching with
@@ -4840,6 +4870,8 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
     override fun onDestroy() {
         uiReady = false
         initHandler.removeCallbacksAndMessages(null)
+        try { externalLaunchAdoption?.destroy() } catch (e: Exception) {}
+        externalLaunchAdoption = null
         try { windowControls?.destroy() } catch (e: Exception) {}
         windowControls = null
         stopMediaControls()
