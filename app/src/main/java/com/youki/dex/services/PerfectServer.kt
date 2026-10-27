@@ -1012,6 +1012,7 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
             .inflate(R.layout.apps_menu, null) as LinearLayout
         searchEntry = appMenu.findViewById(R.id.search_entry)
         searchEt = appMenu.findViewById(R.id.menu_et)
+        val searchClearBtn = appMenu.findViewById<ImageButton>(R.id.menu_search_clear_btn)
         appsGv = appMenu.findViewById(R.id.menu_applist_lv)
         appsGv.setHasFixedSize(true)
         appsGv.layoutManager = GridLayoutManager(context, 5)
@@ -1050,8 +1051,17 @@ class DockService : AccessibilityService(), OnSharedPreferenceChangeListener, On
         // ✅ FIX: الضغط على أي مكان في الصف (الأيقونة + النص) يفتح البحث
         searchLayout.setOnClickListener { searchTv.performClick() }
 
+        // A familiar launcher affordance: clear the query without dismissing the drawer.
+        searchClearBtn.setOnClickListener {
+            searchEt.text?.clear()
+            searchEt.requestFocus()
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(searchEt, InputMethodManager.SHOW_IMPLICIT)
+        }
+
         searchEt.addTextChangedListener { text ->
             if (text != null) {
+                searchClearBtn.visibility = if (text.isNullOrEmpty()) View.GONE else View.VISIBLE
                 val appAdapter = appsGv.adapter as? AppAdapter ?: return@addTextChangedListener
                 appAdapter.filter(text.toString())
                 if (text.length > 1) {
