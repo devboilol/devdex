@@ -86,6 +86,7 @@ class WindowControlsManager(
     private val minimized = HashMap<Int, Rect>()
     private val homeMinimized = HashSet<Int>()
     private var pending = false
+    private var coverageRecheckPending = false
     private var destroyed = false
 
     private val updateRunnable = Runnable {
@@ -477,7 +478,16 @@ class WindowControlsManager(
                 }
                 val now = android.os.SystemClock.elapsedRealtime()
                 if (coveredByWindow) {
-                    if (pill.coveredSince == 0L) pill.coveredSince = now
+                    if (pill.coveredSince == 0L) {
+                        pill.coveredSince = now
+                        if (!coverageRecheckPending) {
+                            coverageRecheckPending = true
+                            handler.postDelayed({
+                                coverageRecheckPending = false
+                                scheduleUpdate(immediate = true)
+                            }, 190L)
+                        }
+                    }
                 } else {
                     pill.coveredSince = 0L
                 }
