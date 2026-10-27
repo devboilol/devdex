@@ -245,15 +245,22 @@ class WindowControlsManager(
             val windows = readWindows()
             for (w in windows) {
                 try {
-                    if (w.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+                    val isApplicationWindow = w.type == AccessibilityWindowInfo.TYPE_APPLICATION
+                    val canObscureControls = isApplicationWindow ||
+                        w.type == AccessibilityWindowInfo.TYPE_SYSTEM ||
+                        w.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD ||
+                        w.type == AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER
+                    if (!canObscureControls) continue
                     val b = Rect(); w.getBoundsInScreen(b)
                     if (b.width() <= 0 || b.height() <= 0) continue
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
-                    // Record the geometry before package filtering. A system or
-                    // in-app popup must not get controls, but it must still hide a
-                    // control pill underneath it while the popup is on screen.
+                    // Geometry from app and system surfaces blocks controls when
+                    // they overlap the pill. Only application windows themselves
+                    // are eligible to receive a control group; system/input-method
+                    // windows are blockers only.
                     windowBlockers.add(Cand(w.id, w.layer, Rect(b), ""))
+                    if (!isApplicationWindow) continue
                     // Avoid decorating unrelated fullscreen activities, but preserve
                     // controls for a window DevDex was already managing. In particular,
                     // the "Full screen" preset must not make the Close button disappear.
