@@ -8,7 +8,6 @@ import android.util.Log
 import android.view.Display
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -53,8 +52,10 @@ internal class ExternalLaunchAdoptionManager(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Any()
     private val pendingPackages = HashSet<String>()
+    private val pendingDevDexPackages = HashMap<String, Long>()
     private val lastAttemptAt = HashMap<String, Long>()
-    private val adoptedTaskIds = LinkedHashSet<Int>()
+    private val adoptedTaskIds = LinkedHashMap<Int, String>()
+    private val devDexManagedTaskIds = LinkedHashMap<Int, String>()
 
     @Volatile
     private var destroyed = false
@@ -67,7 +68,9 @@ internal class ExternalLaunchAdoptionManager(
         val now = System.currentTimeMillis()
         val maySchedule = synchronized(lock) {
             val lastAttempt = lastAttemptAt[pkg] ?: 0L
-            if (pendingPackages.contains(pkg) || now - lastAttempt < PACKAGE_COOLDOWN_MS) {
+            if (pendingDevDexPackages.containsKey(pkg) || pendingPackages.contains(pkg) ||
+                now - lastAttempt < PACKAGE_COOLDOWN_MS
+            ) {
                 false
             } else {
                 pendingPackages.add(pkg)
@@ -95,8 +98,10 @@ internal class ExternalLaunchAdoptionManager(
                     return@launch
                 }
 
-                val alreadyAdopted = synchronized(lock) { adoptedTaskIds.contains(taskId) }
-                if (alreadyAdopted) return@launch
+                val alreadyManaged = synchronized(lock) {
+                    adoptedTaskIds[taskId] == pkg || devDexManagedTaskIds[taskId] == pkg
+                }
+                if (alreadyManaged) return@launch
 
                 // 50 means approximately half of the usable screen area, not half
                 // of each dimension. AppUtils applies the freeform mode and bounds
@@ -117,14 +122,8 @@ internal class ExternalLaunchAdoptionManager(
                 }
 
                 synchronized(lock) {
-                    adoptedTaskIds.add(taskId)
-                    while (adoptedTaskIds.size > MAX_ADOPTED_TASK_IDS) {
-                        val oldest = adoptedTaskIds.iterator()
-                        if (oldest.hasNext()) {
-                            oldest.next()
-                            oldest.remove()
-                        } else break
-                    }
+                    adoptedTaskIds[taskId] = pkg
+                    trimTaskCache(adoptedTaskIds)
                 }
                 Log.i(TAG, "Adopted foreground task $taskId ($pkg) as a freeform window")
                 withContext(Dispatchers.Main) {
@@ -138,13 +137,65 @@ internal class ExternalLaunchAdoptionManager(
         }
     }
 
+    /**
+     * Mark an app that DevDex itself is about to launch. This avoids the
+     * accessibility event from immediately converting a task whose windowing
+     * mode was already deliberately chosen in DevDex's launch menu.
+     */
+    fun noteDevDexLaunch(packageName: String?) {
+        val pkg = packageName?.trim().orEmpty()
+        if (destroyed || !isEnabled() || !isEligiblePackage(pkg)) return
+
+        val stamp = System.currentTimeMillis()
+        synchronized(lock) { pendingDevDexPackages[pkg] = stamp }
+        scope.launch {
+            try {
+                var taskId = -1
+                for (attempt in 0 until 3) {
+                    if (destroyed) return@launch
+                    delay(if (attempt == 0) 550L else 400L)
+                    taskId = resolveTaskId(pkg)
+                    if (taskId >= 0) break
+                }
+                synchronized(lock) {
+                    if (pendingDevDexPackages[pkg] == stamp) {
+                        pendingDevDexPackages.remove(pkg)
+                    }
+                    if (taskId >= 0) {
+                        devDexManagedTaskIds[taskId] = pkg
+                        trimTaskCache(devDexManagedTaskIds)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Could not register DevDex-launched task for $pkg", e)
+                synchronized(lock) {
+                    if (pendingDevDexPackages[pkg] == stamp) {
+                        pendingDevDexPackages.remove(pkg)
+                    }
+                }
+            }
+        }
+    }
+
     fun destroy() {
         destroyed = true
         scope.cancel()
         synchronized(lock) {
             pendingPackages.clear()
+            pendingDevDexPackages.clear()
             lastAttemptAt.clear()
             adoptedTaskIds.clear()
+            devDexManagedTaskIds.clear()
+        }
+    }
+
+    private fun trimTaskCache(cache: LinkedHashMap<Int, String>) {
+        while (cache.size > MAX_ADOPTED_TASK_IDS) {
+            val oldest = cache.entries.iterator()
+            if (oldest.hasNext()) {
+                oldest.next()
+                oldest.remove()
+            } else break
         }
     }
 
