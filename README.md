@@ -123,6 +123,11 @@ Open **Settings → Advanced → Backup/Restore Preferences** to export or impor
 - Always-on-top pinning for arbitrary apps is not implemented through the ordinary public Android APIs.
 - Current hands-on validation is limited to the Redmi Pad SE 8.7. Other tablet models, Android Go builds, and OEM-specific compatibility switches remain unverified until tested on those devices.
 
+### Development notes
+
+- [External launch adoption experiment and test guide](docs/EXTERNAL_LAUNCH_ADOPTION.md).
+- [Lawnchair-inspired UX pattern notes](docs/LAWNCHAIR_PATTERN_NOTES.md). No Lawnchair source code is vendored by these notes.
+
 ### Credits and acknowledgements
 
 DevDex stands on the work of open-source developers. **Thank you to the original authors and contributors:**
@@ -240,6 +245,11 @@ Mở **Cài đặt → Advanced → Backup/Restore Preferences** để xuất ho
 - DevDex có trình quản lý tệp cục bộ cơ bản được dựng lại tại **Cài đặt → Ứng dụng mặc định → Mở trình quản lý tệp DevDex**. Tính năng gồm duyệt thư mục, mở/chia sẻ, đổi tên/xóa, chọn nhiều tệp, sao chép/di chuyển, tạo ZIP, sắp xếp và tìm trong thư mục hiện tại. Android 11 trở lên cần được cấp quyền Truy cập tất cả tệp. Nếu ROM chặn quyền này, hãy dùng trình chọn tệp hệ thống hoặc trình quản lý tệp khác. Bản MVP tập trung vào bộ nhớ dùng chung chính, chưa duyệt thư mục gốc của thẻ SD.
 - Việc nhận diện toàn màn hình và hiển thị điều khiển cửa sổ còn phụ thuộc Android và tùy biến của nhà sản xuất. Hãy kiểm tra trên thiết bị thực tế.
 - Tính năng ghim cửa sổ ứng dụng bất kỳ luôn nổi trên cùng chưa được triển khai bằng các API Android công khai thông thường.
+
+### Ghi chú phát triển
+
+- [Thử nghiệm tiếp nhận ứng dụng mở từ launcher bên ngoài và hướng dẫn kiểm thử](docs/EXTERNAL_LAUNCH_ADOPTION.md).
+- [Ghi chú các ý tưởng UX tham khảo Lawnchair](docs/LAWNCHAIR_PATTERN_NOTES.md). Các ghi chú này không đưa mã nguồn Lawnchair vào DevDex.
 
 ### Ghi công và lời cảm ơn
 
