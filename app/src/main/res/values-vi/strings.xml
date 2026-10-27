@@ -179,6 +179,7 @@
     <string name="donate">Ủng hộ</string>
     <string name="support_the_project">Ủng hộ dự án</string>
     <string name="search">Tìm kiếm…</string>
+    <string name="clear_search">Xóa tìm kiếm</string>
     <string name="copied_to_clipboard">Đã sao chép vào clipboard</string>
     <string name="disabled">Đã tắt</string>
     <string name="shortcuts">Phím tắt…</string>
