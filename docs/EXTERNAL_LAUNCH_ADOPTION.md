@@ -22,7 +22,7 @@ Accessibility events do **not** identify which launcher started an app. The curr
 - This is best-effort and depends on HyperOS/Android honoring freeform launch options or allowing an existing task to change windowing mode.
 - The fallback re-requests the app's main launcher activity. Most launchers use this to bring an app task forward, but some apps may return to their main screen or behave differently; test with ordinary apps and save important work first.
 - Shell, Shizuku, or Root access may be required. Having Shizuku installed is not the same as granting DevDex permission.
-- It may affect an app when it is brought back to the foreground, because Android accessibility events do not expose the original launcher source.
+- It only acts on a likely Home-launcher → app transition, but unusual ROM event sequences can still be missed or misclassified.
 - A task that is not visible to available task APIs may not be found. The conversion can also be refused by the ROM or an app's orientation/windowing policy.
 - System UI, Settings, package installers, permission controllers, and the active Home launcher are excluded.
 - The current prototype attempts adoption on a per-task basis and does not guarantee multi-instance task selection when a ROM hides task IDs.
@@ -52,7 +52,7 @@ Sự kiện Accessibility **không cho biết launcher nào đã khởi chạy �
 - Đây là cơ chế best-effort; kết quả phụ thuộc việc HyperOS/Android có chấp nhận ActivityOptions freeform hoặc cho phép đổi chế độ cửa sổ của task đang chạy hay không.
 - Nhánh dự phòng yêu cầu mở activity chính của ứng dụng một lần nữa. Phần lớn launcher dùng cách này để đưa task ứng dụng lên trước, nhưng một số app có thể quay về màn hình chính hoặc hoạt động khác dự kiến; hãy lưu công việc trước khi thử.
 - Có thể cần quyền shell, Shizuku hoặc Root. Chỉ cài Shizuku chưa có nghĩa là DevDex đã được cấp quyền.
-- Tính năng có thể tác động khi một app được đưa trở lại foreground, vì Accessibility không tiết lộ nguồn launcher ban đầu.
+- Tính năng chỉ can thiệp khi phát hiện chuyển tiếp có vẻ là Home launcher → ứng dụng; chuỗi sự kiện khác thường trên một số ROM vẫn có thể bị bỏ lỡ hoặc nhận diện sai.
 - Nếu các API task hiện có không thấy được task, DevDex có thể không tìm ra ID. ROM hoặc chính sách hướng màn hình/chế độ cửa sổ của ứng dụng cũng có thể từ chối chuyển đổi.
 - Giao diện hệ thống, Cài đặt, trình cài package, bộ điều khiển quyền và launcher Home đang hoạt động được loại trừ.
 - Prototype hiện xử lý theo task và không bảo đảm chọn đúng instance khi ROM che giấu task ID.
