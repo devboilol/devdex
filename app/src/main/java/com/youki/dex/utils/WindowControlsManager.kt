@@ -152,6 +152,75 @@ class WindowControlsManager(
 
     private class Cand(val id: Int, val layer: Int, val bounds: Rect, val pkg: String)
 
+    /**
+     * Packages used for OS-owned surfaces, permission prompts and transient
+     * system UI must never receive app-window controls. Resolve the Home
+     * package dynamically as users may switch back to HyperOS Launcher.
+     */
+    private val excludedSurfacePackages = setOf(
+        "android",
+        "com.android.systemui",
+        "com.android.settings",
+        "com.android.permissioncontroller",
+        "com.google.android.permissioncontroller",
+        "com.android.packageinstaller",
+        "com.google.android.packageinstaller",
+        "com.android.intentresolver",
+        "com.google.android.intentresolver",
+        "com.miui.securitycenter",
+        "com.miui.packageinstaller",
+        "com.miui.global.packageinstaller",
+        "com.google.android.gms",
+        "com.google.android.googlequicksearchbox"
+    )
+
+    private val excludedSurfacePrefixes = listOf(
+        "com.android.systemui.",
+        "com.android.permissioncontroller.",
+        "com.google.android.permissioncontroller.",
+        "com.android.packageinstaller.",
+        "com.google.android.packageinstaller.",
+        "com.miui.securitycenter.",
+        "com.miui.packageinstaller.",
+        "com.miui.global.packageinstaller."
+    )
+
+    private fun isEligibleWindowPackage(pkg: String, homePackage: String): Boolean {
+        if (pkg.isBlank() || pkg == ctx.packageName || pkg == homePackage) return false
+        if (pkg in excludedSurfacePackages || excludedSurfacePrefixes.any(pkg::startsWith)) return false
+        return try {
+            // A real app's primary launcher activity is the baseline. This
+            // excludes many non-launchable helper/popup packages by design.
+            ctx.packageManager.getLaunchIntentForPackage(pkg) != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun area(bounds: Rect): Long =
+        bounds.width().coerceAtLeast(0).toLong() * bounds.height().coerceAtLeast(0).toLong()
+
+    /**
+     * A dialog/popup is a child surface when a lower-layer window from the same
+     * package contains it, or substantially overlaps it while being clearly
+     * larger. Separate freeform instances of one app are retained when their
+     * bounds are independent or similar-sized.
+     */
+    private fun isNestedSameAppWindow(candidate: Cand, other: Cand): Boolean {
+        if (candidate.id == other.id || candidate.pkg != other.pkg) return false
+        if (other.layer >= candidate.layer) return false
+        val candidateArea = area(candidate.bounds)
+        val otherArea = area(other.bounds)
+        if (candidateArea <= 0L || otherArea * 100L < candidateArea * 125L) return false
+
+        if (other.bounds.contains(candidate.bounds)) return true
+
+        val intersection = Rect()
+        if (!intersection.setIntersect(other.bounds, candidate.bounds)) return false
+        val overlapArea = area(intersection)
+        return overlapArea * 100L >= candidateArea * 60L
+    }
+
     @Suppress("DEPRECATION")
     private fun updateNow() {
         if (!prefs.getBoolean("window_controls_enabled", true) || !canDraw()) {
@@ -161,6 +230,11 @@ class WindowControlsManager(
             val dm = DeviceUtils.getDisplayMetrics(ctx, displayId())
             val dispW = dm.widthPixels
             val dispH = dm.heightPixels
+            val homePackage = try {
+                AppUtils.getCurrentLauncher(ctx.packageManager)
+            } catch (e: Exception) {
+                ""
+            }
 
             val cands = ArrayList<Cand>()
             val seenIds = HashSet<Int>()
@@ -180,11 +254,18 @@ class WindowControlsManager(
                         val root = try { w.root } catch (e: Exception) { null }
                         val livePkg = root?.packageName?.toString()
                         try { root?.recycle() } catch (e: Exception) {}
-                        val alreadyManaged = !livePkg.isNullOrBlank() &&
-                            livePkg != ctx.packageName &&
-                            (pills[w.id]?.pkg == livePkg || pills.values.any { it.pkg == livePkg })
-                        if (alreadyManaged) {
+                        // Only preserve controls for this exact window when it
+                        // expands to fullscreen. Package-wide matching allowed a
+                        // fullscreen dialog/prompt from the same app to inherit
+                        // controls meant for its underlying main window.
+                        val alreadyManagedWindow = !livePkg.isNullOrBlank() &&
+                            isEligibleWindowPackage(livePkg, homePackage) &&
+                            pills[w.id]?.pkg == livePkg
+                        if (alreadyManagedWindow) {
                             cands.add(Cand(w.id, w.layer, b, livePkg!!))
+                        } else {
+                            pkgCache.remove(w.id)
+                            nativeCaptionCache.remove(w.id)
                         }
                         continue
                     }
@@ -218,8 +299,10 @@ class WindowControlsManager(
                     pkgCache[w.id] = livePkg
                     seenIds.add(w.id)
 
-                    // Never decorate DevDex's own dock/menu/activity windows.
-                    if (livePkg == ctx.packageName) {
+                    // Never decorate DevDex, Home, or OS-owned transient surfaces.
+                    // This intentionally prefers missing a marginal app over
+                    // placing Close/Resize over a permission prompt or system popup.
+                    if (!isEligibleWindowPackage(livePkg, homePackage)) {
                         try { root?.recycle() } catch (e: Exception) {}
                         root = null
                         nativeCaptionCache.remove(w.id)
@@ -249,20 +332,11 @@ class WindowControlsManager(
             pkgCache.keys.retainAll(seenIds)
             nativeCaptionCache.keys.retainAll(seenIds)
 
-            // per-package index → so two windows of one app map to two tasks
-            // Dialog/popup windows from the same app can be reported as
-            // separate TYPE_APPLICATION windows. Don't decorate a small
-            // window fully contained inside a much larger same-app window;
-            // that would add a second Close button to the popup itself.
+            // Package index is assigned only after child popups/dialogs and
+            // system surfaces have been removed, so controls map to main app
+            // windows rather than counting transient overlays as separate tasks.
             val topLevelCandidates = cands.filter { candidate ->
-                !cands.any { other ->
-                    other.id != candidate.id &&
-                        other.pkg == candidate.pkg &&
-                        other.layer < candidate.layer &&
-                        other.bounds.contains(candidate.bounds) &&
-                        other.bounds.width() >= candidate.bounds.width() * 3 / 2 &&
-                        other.bounds.height() >= candidate.bounds.height() * 3 / 2
-                }
+                !cands.any { other -> isNestedSameAppWindow(candidate, other) }
             }
             val perPkgCount = HashMap<String, Int>()
             val seenTaskIds = HashSet<Int>()
