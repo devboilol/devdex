@@ -1,7 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Pixel-style smooth transitions between all screens -->
-    <style name="YoukiWindowAnimation" parent="@android:style/Animation.Activity">
+    <style name="DevDexWindowAnimation" parent="@android:style/Animation.Activity">
         <item name="android:activityOpenEnterAnimation">@anim/activity_open_enter</item>
         <item name="android:activityOpenExitAnimation">@anim/activity_open_exit</item>
         <item name="android:activityCloseEnterAnimation">@anim/activity_close_enter</item>
@@ -72,7 +72,7 @@
         <item name="preferenceTheme">@style/ThemeOverlay.App.Preference</item>
         <item name="shapeAppearanceCornerFull">@style/ShapeAppearance.App.CornerFull</item>
         <item name="colorBackground">@color/md_theme_light_background</item>
-        <item name="android:windowAnimationStyle">@style/YoukiWindowAnimation</item>
+        <item name="android:windowAnimationStyle">@style/DevDexWindowAnimation</item>
     </style>
 
     <style name="ShapeAppearance.App.CornerFull" parent="ShapeAppearance.Material3.Corner.Full">
