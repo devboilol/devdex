@@ -449,6 +449,10 @@ To uninstall, remove Device Administrator permission first.</string>
     <string name="remove_from_dock">Remove from dock</string>
 
     <!-- Desktop -->
+    <string name="desktop_empty_eyebrow">ANDROID DESKTOP</string>
+    <string name="desktop_empty_title">Your workspace, your rules.</string>
+    <string name="desktop_empty_summary">Pin your favorite apps, keep tasks close, and work across floating windows.</string>
+    <string name="settings_brand_subtitle">Desktop settings • windows • dock</string>
     <string name="lets_start">Let\'s start</string>
     <string name="widget_appearance_category">Widgets</string>
     <string name="widget_corner_style_title">Widget corner style</string>
