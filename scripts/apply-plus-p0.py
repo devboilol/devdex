@@ -218,20 +218,11 @@ internal object DevDexPlusFreeformSetup {
     private var newProcessMethod: Method? = null
 
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
-        if (!::appContext.isInitialized) return@OnBinderReceivedListener
-        if (hasPermission()) {
-            applyFreeformFlags(false)
-        } else {
-            val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            if (!prefs.getBoolean(KEY_AUTO_PROMPTED, false)) {
-                prefs.edit().putBoolean(KEY_AUTO_PROMPTED, true).apply()
-                feedbackAfterPermission = true
-                try {
-                    Shizuku.requestPermission(REQUEST_CODE)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not request Shizuku permission", e)
-                }
-            }
+        // Do not request permissions or run shell commands during launcher startup.
+        // A Shizuku permission activity launched from Application.onCreate can leave
+        // the HOME task in a blank state on some ROMs. Setup is explicitly user-triggered.
+        if (::appContext.isInitialized) {
+            Log.i(TAG, "Shizuku binder connected; freeform setup is user-triggered")
         }
     }
 
