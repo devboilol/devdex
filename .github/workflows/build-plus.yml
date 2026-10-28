@@ -40,6 +40,15 @@ jobs:
       - name: Integrate DevDex engine and apply launcher patch
         run: bash "$GITHUB_WORKSPACE/devdex-src/scripts/build-plus-in-ci.sh" "$GITHUB_WORKSPACE/devdex-src" "$GITHUB_WORKSPACE/lawnchair-src"
 
+      - name: Verify freeform default and migration were integrated
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'defaultValue = true' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
+          grep -q 'devdex_plus_desktop_mode_migrated' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
+          grep -q 'prefs\[key\] = true' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
+          grep -q 'setLaunchWindowingMode(WINDOWING_MODE_FREEFORM)' "$GITHUB_WORKSPACE/lawnchair-src/quickstep/src/com/android/launcher3/uioverrides/QuickstepLauncher.java"
+
       - name: Build DevDex Plus debug APK
         working-directory: lawnchair-src
         run: ./gradlew assembleLawnWithQuickstepGithubDebug -x licenseeAndroidLawnWithQuickstepGithubDebug -x copyLawnWithQuickstepGithubDebugLicenseeReportToAssets --stacktrace
