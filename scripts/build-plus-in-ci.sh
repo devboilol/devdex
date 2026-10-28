@@ -29,6 +29,12 @@ android {
     }
 }
 
+configurations.configureEach {
+    // Lawnchair ships the modern Parcelize runtime; one legacy DevDex transitive
+    // dependency still pulls the obsolete Android Extensions runtime with the same classes.
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-android-extensions-runtime'
+}
+
 dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
     implementation 'androidx.appcompat:appcompat:1.7.1'
