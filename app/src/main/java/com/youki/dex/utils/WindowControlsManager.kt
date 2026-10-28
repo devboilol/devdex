@@ -71,6 +71,9 @@ class WindowControlsManager(
         var shownAtX = Int.MIN_VALUE
         var shownAtY = Int.MIN_VALUE
         var missingSince = 0L
+        // Debounce transient OEM accessibility geometry so one-frame blockers
+        // cannot make a stable window-control group rapidly disappear/reappear.
+        var coveredSince = 0L
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -83,11 +86,35 @@ class WindowControlsManager(
     private val minimized = HashMap<Int, Rect>()
     private val homeMinimized = HashSet<Int>()
     private var pending = false
+    private var coverageRecheckPending = false
+    private var motionPollScheduled = false
+    private var fastMotionUntilMs = 0L
     private var destroyed = false
 
     private val updateRunnable = Runnable {
         pending = false
         if (!destroyed) updateNow()
+    }
+
+    // Accessibility window-change events can be sparse on some OEM builds.
+    // While controls exist, poll at a low idle rate; after movement is observed,
+    // temporarily refresh at frame cadence so the overlay catches up quickly.
+    private val motionPollRunnable = Runnable {
+        motionPollScheduled = false
+        if (!destroyed && pills.isNotEmpty()) scheduleUpdate(immediate = true)
+    }
+
+    private fun scheduleMotionPoll() {
+        if (destroyed || pills.isEmpty()) {
+            handler.removeCallbacks(motionPollRunnable)
+            motionPollScheduled = false
+            return
+        }
+        if (motionPollScheduled) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        val delayMs = if (now < fastMotionUntilMs) 16L else 120L
+        motionPollScheduled = true
+        handler.postDelayed(motionPollRunnable, delayMs)
     }
 
     private fun dp(v: Int) = (v * ctx.resources.displayMetrics.density + 0.5f).toInt()
@@ -114,6 +141,7 @@ class WindowControlsManager(
         removeAll()
         minimized.clear()
         homeMinimized.clear()
+        launchablePackageCache.clear()
     }
 
     /** If [taskId] was minimized by this manager, restore it and return true. */
@@ -152,6 +180,108 @@ class WindowControlsManager(
 
     private class Cand(val id: Int, val layer: Int, val bounds: Rect, val pkg: String)
 
+    /**
+     * Packages used for OS-owned surfaces, permission prompts and transient
+     * system UI must never receive app-window controls. Resolve the Home
+     * package dynamically as users may switch back to HyperOS Launcher.
+     */
+    private val excludedSurfacePackages = setOf(
+        "android",
+        "com.android.systemui",
+        "com.android.settings",
+        "com.android.permissioncontroller",
+        "com.google.android.permissioncontroller",
+        "com.android.packageinstaller",
+        "com.google.android.packageinstaller",
+        "com.android.intentresolver",
+        "com.google.android.intentresolver",
+        "com.miui.securitycenter",
+        "com.miui.packageinstaller",
+        "com.miui.global.packageinstaller",
+        "com.google.android.gms",
+        "com.google.android.googlequicksearchbox"
+    )
+
+    private val excludedSurfacePrefixes = listOf(
+        "com.android.systemui.",
+        "com.android.permissioncontroller.",
+        "com.google.android.permissioncontroller.",
+        "com.android.packageinstaller.",
+        "com.google.android.packageinstaller.",
+        "com.miui.securitycenter.",
+        "com.miui.packageinstaller.",
+        "com.miui.global.packageinstaller."
+    )
+    // Updates can be triggered rapidly while a window is dragged. Cache only
+    // positive launcher-entry lookups so PackageManager is not queried on every frame.
+    private val launchablePackageCache = HashSet<String>()
+
+    private fun isEligibleWindowPackage(pkg: String, homePackage: String): Boolean {
+        if (pkg.isBlank() || pkg == ctx.packageName || pkg == homePackage) return false
+        if (pkg in excludedSurfacePackages || excludedSurfacePrefixes.any(pkg::startsWith)) return false
+        if (launchablePackageCache.contains(pkg)) return true
+        val launchable = try {
+            // A real app's primary launcher activity is the baseline. This
+            // excludes many non-launchable helper/popup packages by design.
+            ctx.packageManager.getLaunchIntentForPackage(pkg) != null
+        } catch (e: Exception) {
+            false
+        }
+        if (launchable) launchablePackageCache.add(pkg)
+        return launchable
+    }
+
+    private fun area(bounds: Rect): Long =
+        bounds.width().coerceAtLeast(0).toLong() * bounds.height().coerceAtLeast(0).toLong()
+
+    /**
+     * Some OEM builds report overlays as accessibility windows but briefly omit
+     * their root package while attaching/detaching. Match known pill geometry as
+     * a second guard against the controls being registered as their own blocker.
+     */
+    private fun isManagedControlOverlay(bounds: Rect): Boolean {
+        val positionTolerance = dp(12)
+        val widthTolerance = dp(20)
+        val heightTolerance = dp(12)
+        return pills.values.any { pill ->
+            val width = pill.view.measuredWidth.takeIf { it > 0 } ?: pill.view.width
+            val height = pill.view.measuredHeight.takeIf { it > 0 } ?: pill.view.height
+            width > 0 && height > 0 &&
+                kotlin.math.abs(bounds.left - pill.params.x) <= positionTolerance &&
+                kotlin.math.abs(bounds.top - pill.params.y) <= positionTolerance &&
+                kotlin.math.abs(bounds.width() - width) <= widthTolerance &&
+                kotlin.math.abs(bounds.height() - height) <= heightTolerance
+        }
+    }
+
+    /**
+     * A dialog/popup is a child surface when a lower-layer window from the same
+     * package contains it, or substantially overlaps it while being clearly
+     * larger. Separate freeform instances of one app are retained when their
+     * bounds are independent or similar-sized.
+     */
+    private fun isNestedSameAppWindow(candidate: Cand, other: Cand): Boolean {
+        if (candidate.id == other.id || candidate.pkg != other.pkg) return false
+        if (other.layer >= candidate.layer) return false
+        val candidateArea = area(candidate.bounds)
+        val otherArea = area(other.bounds)
+        if (candidateArea <= 0L || otherArea <= candidateArea) return false
+
+        // Even a nearly full-window dialog should be treated as a child surface
+        // when its bounds are contained by a slightly larger same-app window.
+        val strictlyLargerContainer = other.bounds.contains(candidate.bounds) &&
+            (other.bounds.width() > candidate.bounds.width() ||
+                other.bounds.height() > candidate.bounds.height())
+        if (strictlyLargerContainer) return true
+
+        if (otherArea * 100L < candidateArea * 125L) return false
+
+        val intersection = Rect()
+        if (!intersection.setIntersect(other.bounds, candidate.bounds)) return false
+        val overlapArea = area(intersection)
+        return overlapArea * 100L >= candidateArea * 60L
+    }
+
     @Suppress("DEPRECATION")
     private fun updateNow() {
         if (!prefs.getBoolean("window_controls_enabled", true) || !canDraw()) {
@@ -161,17 +291,45 @@ class WindowControlsManager(
             val dm = DeviceUtils.getDisplayMetrics(ctx, displayId())
             val dispW = dm.widthPixels
             val dispH = dm.heightPixels
+            val homePackage = try {
+                AppUtils.getCurrentLauncher(ctx.packageManager)
+            } catch (e: Exception) {
+                ""
+            }
 
             val cands = ArrayList<Cand>()
+            // Keep geometry for visible app/system/IME/divider windows, including
+            // excluded system surfaces and popup windows. This list only hides
+            // the main window's controls when a higher layer covers the pill.
+            val windowBlockers = ArrayList<Cand>()
             val seenIds = HashSet<Int>()
             val windows = readWindows()
             for (w in windows) {
                 try {
-                    if (w.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+                    val isApplicationWindow = w.type == AccessibilityWindowInfo.TYPE_APPLICATION
+                    val canObscureControls = isApplicationWindow ||
+                        w.type == AccessibilityWindowInfo.TYPE_SYSTEM ||
+                        w.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD ||
+                        w.type == AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER
+                    if (!canObscureControls) continue
                     val b = Rect(); w.getBoundsInScreen(b)
                     if (b.width() <= 0 || b.height() <= 0) continue
                     // completely off-screen (minimized) → no controls
                     if (!Rect.intersects(b, Rect(0, 0, dispW, dispH))) continue
+                    // Geometry from app and system surfaces blocks controls when
+                    // they overlap the pill. Never treat DevDex's own overlay as a
+                    // blocker: some ROMs expose TYPE_APPLICATION_OVERLAY through the
+                    // accessibility window list, which otherwise makes the pill hide
+                    // itself, reappear, and flicker on every update.
+                    val blockerRoot = try { w.root } catch (e: Exception) { null }
+                    val blockerPackage = blockerRoot?.packageName?.toString()
+                    try { blockerRoot?.recycle() } catch (e: Exception) {}
+                    val isOurOverlay = blockerPackage == ctx.packageName ||
+                        (blockerPackage.isNullOrBlank() && isManagedControlOverlay(b))
+                    if (!isOurOverlay) {
+                        windowBlockers.add(Cand(w.id, w.layer, Rect(b), blockerPackage.orEmpty()))
+                    }
+                    if (!isApplicationWindow) continue
                     // Avoid decorating unrelated fullscreen activities, but preserve
                     // controls for a window DevDex was already managing. In particular,
                     // the "Full screen" preset must not make the Close button disappear.
@@ -180,11 +338,18 @@ class WindowControlsManager(
                         val root = try { w.root } catch (e: Exception) { null }
                         val livePkg = root?.packageName?.toString()
                         try { root?.recycle() } catch (e: Exception) {}
-                        val alreadyManaged = !livePkg.isNullOrBlank() &&
-                            livePkg != ctx.packageName &&
-                            (pills[w.id]?.pkg == livePkg || pills.values.any { it.pkg == livePkg })
-                        if (alreadyManaged) {
+                        // Only preserve controls for this exact window when it
+                        // expands to fullscreen. Package-wide matching allowed a
+                        // fullscreen dialog/prompt from the same app to inherit
+                        // controls meant for its underlying main window.
+                        val alreadyManagedWindow = !livePkg.isNullOrBlank() &&
+                            isEligibleWindowPackage(livePkg, homePackage) &&
+                            pills[w.id]?.pkg == livePkg
+                        if (alreadyManagedWindow) {
                             cands.add(Cand(w.id, w.layer, b, livePkg!!))
+                        } else {
+                            pkgCache.remove(w.id)
+                            nativeCaptionCache.remove(w.id)
                         }
                         continue
                     }
@@ -218,8 +383,10 @@ class WindowControlsManager(
                     pkgCache[w.id] = livePkg
                     seenIds.add(w.id)
 
-                    // Never decorate DevDex's own dock/menu/activity windows.
-                    if (livePkg == ctx.packageName) {
+                    // Never decorate DevDex, Home, or OS-owned transient surfaces.
+                    // This intentionally prefers missing a marginal app over
+                    // placing Close/Resize over a permission prompt or system popup.
+                    if (!isEligibleWindowPackage(livePkg, homePackage)) {
                         try { root?.recycle() } catch (e: Exception) {}
                         root = null
                         nativeCaptionCache.remove(w.id)
@@ -249,20 +416,11 @@ class WindowControlsManager(
             pkgCache.keys.retainAll(seenIds)
             nativeCaptionCache.keys.retainAll(seenIds)
 
-            // per-package index → so two windows of one app map to two tasks
-            // Dialog/popup windows from the same app can be reported as
-            // separate TYPE_APPLICATION windows. Don't decorate a small
-            // window fully contained inside a much larger same-app window;
-            // that would add a second Close button to the popup itself.
+            // Package index is assigned only after child popups/dialogs and
+            // system surfaces have been removed, so controls map to main app
+            // windows rather than counting transient overlays as separate tasks.
             val topLevelCandidates = cands.filter { candidate ->
-                !cands.any { other ->
-                    other.id != candidate.id &&
-                        other.pkg == candidate.pkg &&
-                        other.layer < candidate.layer &&
-                        other.bounds.contains(candidate.bounds) &&
-                        other.bounds.width() >= candidate.bounds.width() * 3 / 2 &&
-                        other.bounds.height() >= candidate.bounds.height() * 3 / 2
-                }
+                !cands.any { other -> isNestedSameAppWindow(candidate, other) }
             }
             val perPkgCount = HashMap<String, Int>()
             val seenTaskIds = HashSet<Int>()
@@ -301,6 +459,9 @@ class WindowControlsManager(
                 alive.add(c.id)
                 pill.missingSince = 0L
                 pill.pkg = c.pkg
+                if (pill.windowBounds != c.bounds) {
+                    fastMotionUntilMs = android.os.SystemClock.elapsedRealtime() + 450L
+                }
                 pill.windowBounds = Rect(c.bounds)
                 // Apply to the complete control group so the background and both icons
                 // fade together. Stored as a string by SliderPreference.
@@ -338,10 +499,29 @@ class WindowControlsManager(
 
                 val pillRect = Rect(x, y, x + pw, y + pillH)
                 val stillUnderDock = Rect.intersects(dockBounds, pillRect)
-                val coveredByWindow = sorted.any { o ->
+                val coveredByWindow = windowBlockers.any { o ->
                     o.id != c.id && o.layer > c.layer && Rect.intersects(o.bounds, pillRect)
                 }
-                val covered = stillUnderDock || coveredByWindow
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (coveredByWindow) {
+                    if (pill.coveredSince == 0L) {
+                        pill.coveredSince = now
+                        if (!coverageRecheckPending) {
+                            coverageRecheckPending = true
+                            handler.postDelayed({
+                                coverageRecheckPending = false
+                                scheduleUpdate(immediate = true)
+                            }, 190L)
+                        }
+                    }
+                } else {
+                    pill.coveredSince = 0L
+                }
+                // Dock geometry is deterministic and applies immediately. Window
+                // blockers are debounced to smooth transient HyperOS snapshots.
+                val coveredByStableWindow = coveredByWindow &&
+                    now - pill.coveredSince >= 180L
+                val covered = stillUnderDock || coveredByStableWindow
 
                 pill.view.visibility = if (covered) View.GONE else View.VISIBLE
                 pill.params.x = x
@@ -381,6 +561,7 @@ class WindowControlsManager(
         } catch (e: Exception) {
             // never let window-decoration problems crash the dock
         }
+        scheduleMotionPoll()
     }
 
     /**

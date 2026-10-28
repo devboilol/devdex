@@ -796,6 +796,11 @@
     <string name="join_telegram_title">Nhóm Telegram</string>
     <string name="join_telegram_summary">Có câu hỏi? Tham gia nhóm hỗ trợ trên Telegram.</string>
     <string name="user">Người dùng</string>
+    <string name="desktop_empty_eyebrow">KHÔNG GIAN LÀM VIỆC</string>
+    <string name="desktop_empty_title">Không gian của bạn, cách của bạn.</string>
+    <string name="desktop_empty_summary">Ghim ứng dụng yêu thích, quản lý tác vụ và làm việc với cửa sổ nổi.</string>
+    <string name="clear_search">Xóa tìm kiếm</string>
+    <string name="settings_brand_subtitle">Tùy chỉnh desktop • cửa sổ • dock</string>
     <string name="lets_start">Bắt đầu</string>
     <string name="start_message">DevDex đã khởi động</string>
     <string name="bluetooth">Bluetooth</string>

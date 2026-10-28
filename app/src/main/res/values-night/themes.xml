@@ -49,7 +49,7 @@
         <item name="preferenceTheme">@style/ThemeOverlay.App.Preference</item>
         <item name="shapeAppearanceCornerFull">@style/ShapeAppearance.App.CornerFull</item>
         <item name="colorBackground">@color/md_theme_dark_background</item>
-        <item name="android:windowAnimationStyle">@style/YoukiWindowAnimation</item>
+        <item name="android:windowAnimationStyle">@style/DevDexWindowAnimation</item>
     </style>
 
 </resources>

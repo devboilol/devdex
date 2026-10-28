@@ -46,6 +46,8 @@ DevDex is preparing a Release Candidate (RC). CI APKs are test artifacts; a down
 
 > **Preview warning:** This is an experimental Community Preview, not a stable release. The APK uses debug signing, so it may not install as an update over another DevDex build. Back up important data first and preferably test on a secondary device. Do not rely on this preview for banking, payments, identity verification, government services, or other sensitive workflows.
 
+> **Package identity note:** Starting with the next candidate, DevDex uses Android application ID `com.devboi.dex` instead of `com.youki.dex`. Android treats this as a separate app, so the new build may appear alongside the old one and will not automatically inherit its private settings/database, permissions, or default Home selection. Keep the old app until you have tested the new one and restored any settings you need.
+
 #### 1. Download the APK
 
 1. Open the [DevDex 3.5.186 Community Preview release](https://github.com/devboilol/devdex/releases/tag/v3.5.186-preview.1).
@@ -119,6 +121,7 @@ Open **Settings → Advanced → Backup/Restore Preferences** to export or impor
 - The Android status bar is visible by default. **Settings → Appearance → Hide status bar** can hide it for desktop mode; the navigation bar remains immersive and can be temporarily revealed with a swipe.
 - DevDex includes a rebuilt basic local file manager under **Settings → Default apps → Open DevDex file manager**. It supports folder navigation, opening/sharing files, rename/delete, multi-select, copy/move, ZIP creation, sorting, and search within the current folder. Android 11 and newer require the user to grant All files access. On ROMs that block this permission, use the system picker or another file manager. The MVP focuses on primary shared storage, not SD-card root browsing.
 - Window controls and fullscreen detection depend partly on Android and device-manufacturer behavior. Please test on your own device.
+- Custom Close/Resize controls are intended only for eligible top-level app windows; see the [window controls scope and device checklist](docs/WINDOW_CONTROLS_SCOPE.md).
 - Always-on-top pinning for arbitrary apps is not implemented through the ordinary public Android APIs.
 - Current hands-on validation is limited to the Redmi Pad SE 8.7. Other tablet models, Android Go builds, and OEM-specific compatibility switches remain unverified until tested on those devices.
 
@@ -163,6 +166,8 @@ DevDex đang chuẩn bị bản Release Candidate (RC). APK từ CI là bản ki
 ### Hướng dẫn cài đặt chi tiết
 
 > **Lưu ý về bản thử nghiệm:** Đây là bản Community Preview đang trong giai đoạn thử nghiệm, chưa phải bản ổn định. APK dùng debug signing nên có thể không cài cập nhật đè lên một bản DevDex khác. Hãy sao lưu dữ liệu quan trọng trước và ưu tiên thử trên thiết bị phụ. Không dùng bản này cho ngân hàng, thanh toán, xác minh danh tính, dịch vụ chính phủ hoặc các thao tác nhạy cảm khác.
+
+> **Lưu ý về định danh ứng dụng:** Từ bản candidate tiếp theo, DevDex đổi Android application ID từ `com.youki.dex` sang `com.devboi.dex`. Android sẽ coi đây là ứng dụng riêng biệt, nên bản mới có thể xuất hiện song song với bản cũ và không tự chuyển cài đặt/cơ sở dữ liệu riêng, quyền đã cấp hoặc lựa chọn launcher mặc định. Giữ bản cũ cho đến khi đã kiểm tra bản mới và khôi phục các cài đặt cần thiết.
 
 #### 1. Tải đúng file APK
 

@@ -4,8 +4,8 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
-// A monotonically increasing versionCode lets Android install a newer CI APK
-// over the previous one without uninstalling. Set -PdevdexBuildNumber locally if needed.
+// A monotonically increasing versionCode supports in-place updates only when the
+// applicationId and signing identity stay the same. Set -PdevdexBuildNumber locally if needed.
 def devdexBuildNumber = (project.findProperty("devdexBuildNumber")
     ?: System.getenv("GITHUB_RUN_NUMBER")
     ?: "0").toString().toInteger()
@@ -27,11 +27,13 @@ def devdexHasStableSigning = devdexSigningStoreFile != null &&
     devdexSigningKeyPassword != null && !devdexSigningKeyPassword.isEmpty()
 
 android {
+    // Keep the source namespace for now to avoid a risky package-wide refactor.
+    // The installed Android app identity is DevDex's new application ID.
     namespace "com.youki.dex"
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.youki.dex"
+        applicationId "com.devboi.dex"
         minSdk 26
         targetSdk 35
         versionCode devdexVersionCode
