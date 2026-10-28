@@ -191,5 +191,8 @@ if "ShizukuProvider.enableMultiProcessSupport(true)" not in data:
 print("Prepared Lawnchair + DevDex Plus source integration.")
 PY
 
+echo "== Apply DevDex Plus taskbar / Lawnchair drawer bridge =="
+python3 "$DEVDEX_DIR/scripts/apply-plus-taskbar-bridge.py" "$LAWNCHAIR_DIR"
+
 echo "== Integrated source changes =="
 git status --short
