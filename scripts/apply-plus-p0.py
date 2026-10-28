@@ -144,6 +144,9 @@ helpers = """    private boolean isDevDexPlusDesktopModeEnabled() {
     }
 
 """
-insert_after(method_anchor, helpers)
+if "private boolean isDevDexPlusDesktopModeEnabled()" not in data:
+    if method_anchor not in data:
+        raise SystemExit("QuickstepLauncher method insertion anchor missing")
+    data = data.replace(method_anchor, helpers + method_anchor, 1)
 quickstep.write_text(data, encoding="utf-8")
 print("Applied DevDex Plus P0 preference and freeform launch source changes.")
