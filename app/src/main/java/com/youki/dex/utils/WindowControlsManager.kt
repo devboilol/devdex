@@ -87,11 +87,34 @@ class WindowControlsManager(
     private val homeMinimized = HashSet<Int>()
     private var pending = false
     private var coverageRecheckPending = false
+    private var motionPollScheduled = false
+    private var fastMotionUntilMs = 0L
     private var destroyed = false
 
     private val updateRunnable = Runnable {
         pending = false
         if (!destroyed) updateNow()
+    }
+
+    // Accessibility window-change events can be sparse on some OEM builds.
+    // While controls exist, poll at a low idle rate; after movement is observed,
+    // temporarily refresh at frame cadence so the overlay catches up quickly.
+    private val motionPollRunnable = Runnable {
+        motionPollScheduled = false
+        if (!destroyed && pills.isNotEmpty()) scheduleUpdate(immediate = true)
+    }
+
+    private fun scheduleMotionPoll() {
+        if (destroyed || pills.isEmpty()) {
+            handler.removeCallbacks(motionPollRunnable)
+            motionPollScheduled = false
+            return
+        }
+        if (motionPollScheduled) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        val delayMs = if (now < fastMotionUntilMs) 16L else 120L
+        motionPollScheduled = true
+        handler.postDelayed(motionPollRunnable, delayMs)
     }
 
     private fun dp(v: Int) = (v * ctx.resources.displayMetrics.density + 0.5f).toInt()
@@ -436,6 +459,9 @@ class WindowControlsManager(
                 alive.add(c.id)
                 pill.missingSince = 0L
                 pill.pkg = c.pkg
+                if (pill.windowBounds != c.bounds) {
+                    fastMotionUntilMs = android.os.SystemClock.elapsedRealtime() + 450L
+                }
                 pill.windowBounds = Rect(c.bounds)
                 // Apply to the complete control group so the background and both icons
                 // fade together. Stored as a string by SliderPreference.
@@ -535,6 +561,7 @@ class WindowControlsManager(
         } catch (e: Exception) {
             // never let window-decoration problems crash the dock
         }
+        scheduleMotionPoll()
     }
 
     /**
