@@ -48,6 +48,10 @@ jobs:
           grep -q 'devdex_plus_desktop_mode_migrated' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
           grep -q 'prefs\[key\] = true' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
           grep -q 'setLaunchWindowingMode(WINDOWING_MODE_FREEFORM)' "$GITHUB_WORKSPACE/lawnchair-src/quickstep/src/com/android/launcher3/uioverrides/QuickstepLauncher.java"
+          grep -q 'DevDexPlusFreeformSetup.request(context)' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/ui/preferences/destinations/HomeScreenPreferences.kt"
+          grep -q 'DevDexPlusFreeformSetup.initialize(this)' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/LawnchairApp.kt"
+          test -f "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/DevDexPlusFreeformSetup.kt"
+          grep -q 'devdex_plus_freeform_setup' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/res/values/strings.xml"
 
       - name: Build DevDex Plus debug APK
         working-directory: lawnchair-src
@@ -80,7 +84,7 @@ jobs:
       - name: Upload DevDex Plus APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DevDexPlus-alpha-debug
+          name: DevDexPlus-shizuku-freeform
           path: dist/*
           if-no-files-found: error
           retention-days: 14
