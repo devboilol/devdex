@@ -12,6 +12,30 @@ def replace_once(rel, old, new):
         raise SystemExit(f"Patch anchor missing in {rel}: {old[:120]!r}")
     path.write_text(data.replace(old, new, 1), encoding="utf-8")
 
+# Existing installs may retain an explicit false from an earlier alpha.
+# Use Lawnchair's own DataStore migration to enable freeform once, then preserve
+# the user's subsequent choice.
+replace_once(
+    "lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt",
+    """    override val preferencesDataStore = context.preferencesDataStore
+""",
+    """    override val preferencesDataStore = context.preferencesDataStore
+
+    init {
+        scope.launch {
+            preferencesDataStore.edit { prefs ->
+                val key = booleanPreferencesKey("devdex_plus_desktop_mode")
+                val migratedKey = booleanPreferencesKey("devdex_plus_desktop_mode_migrated")
+                if (prefs[migratedKey] != true) {
+                    prefs[key] = true
+                    prefs[migratedKey] = true
+                }
+            }
+        }
+    }
+""",
+)
+
 replace_once(
     "lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt",
     """    val isHotseatEnabled = preference(
