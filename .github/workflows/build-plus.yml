@@ -42,7 +42,7 @@ jobs:
 
       - name: Build DevDex Plus debug APK
         working-directory: lawnchair-src
-        run: ./gradlew assembleLawnWithQuickstepGithubDebug -x licenseeAndroidLawnWithQuickstepGithubDebug --stacktrace
+        run: ./gradlew assembleLawnWithQuickstepGithubDebug -x licenseeAndroidLawnWithQuickstepGithubDebug -x copyLawnWithQuickstepGithubDebugLicenseeReportToAssets --stacktrace
 
       - name: Package APK and checksum
         shell: bash
