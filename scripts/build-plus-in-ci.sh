@@ -128,6 +128,13 @@ for app in doc.findall("application"):
                  "requestLegacyExternalStorage", "localeConfig", "debuggable",
                  "fullBackupContent", "fullBackupOnly", "resizeableActivity"):
         app.attrib.pop(ANDROID + attr, None)
+
+    # Lawnchair already uses AndroidX FileProvider for overview sharing. Keep DevDex's
+    # own share paths by giving its provider class a distinct component name.
+    for provider in app.findall("provider"):
+        if provider.attrib.get(ANDROID + "name") == "androidx.core.content.FileProvider":
+            provider.set(ANDROID + "name", ".utils.DevDexFileProvider")
+
     for activity in list(app.findall("activity")):
         for intent_filter in list(activity.findall("intent-filter")):
             actions = {node.attrib.get(ANDROID + "name") for node in intent_filter.findall("action")}
@@ -143,6 +150,17 @@ tree.write(manifest, encoding="utf-8", xml_declaration=True)
 
 # Avoid collision with Lawnchair's similarly named generic activity theme.
 src = root / "devdexengine/src/main"
+provider_src = src / "java/com/youki/dex/utils/DevDexFileProvider.kt"
+provider_src.parent.mkdir(parents=True, exist_ok=True)
+provider_src.write_text("""package com.youki.dex.utils
+
+/**
+ * Dedicated DevDex file provider; Lawnchair uses a separate AndroidX FileProvider
+ * component and authority in the same APK.
+ */
+class DevDexFileProvider : androidx.core.content.FileProvider()
+""", encoding="utf-8")
+
 for path in src.rglob("*"):
     if not path.is_file() or path.suffix.lower() not in {".xml", ".kt", ".java"}:
         continue
