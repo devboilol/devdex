@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: LawnchairLauncher/lawnchair
-          ref: 16-dev
+          ref: 15ebe415830d8ac29a0b23659c8f6db10759d745
           path: lawnchair-src
           submodules: recursive
 
@@ -44,17 +44,29 @@ jobs:
         working-directory: lawnchair-src
         run: ./gradlew assembleLawnWithQuickstepGithubDebug -x licenseeAndroidLawnWithQuickstepGithubDebug -x copyLawnWithQuickstepGithubDebugLicenseeReportToAssets --stacktrace
 
+      - name: Verify merged launcher manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="$(find "$GITHUB_WORKSPACE/lawnchair-src/build/intermediates/merged_manifest" -path '*/lawnWithQuickstepGithubDebug/processLawnWithQuickstepGithubDebugMainManifest/AndroidManifest.xml' -print -quit)"
+          test -n "$MANIFEST" || { echo "Merged manifest not found"; exit 1; }
+          python3 "$GITHUB_WORKSPACE/devdex-src/scripts/verify-plus-manifest.py" "$MANIFEST"
+
       - name: Package APK and checksum
         shell: bash
         run: |
           set -euo pipefail
-          APK="$(find "$GITHUB_WORKSPACE/lawnchair-src/build/outputs/apk" -type f -name '*.apk' -print -quit)"
-          test -n "$APK" || { echo "APK not found"; exit 1; }
+          mapfile -t APK_CANDIDATES < <(find "$GITHUB_WORKSPACE/lawnchair-src/build/outputs/apk" -type f -name 'DevDexPlus*.apk' -print | sort)
+          if [[ "${#APK_CANDIDATES[@]}" -ne 1 ]]; then
+            printf 'Expected exactly one DevDex Plus APK, found %s\n' "${#APK_CANDIDATES[@]}"
+            printf '%s\n' "${APK_CANDIDATES[@]}"
+            exit 1
+          fi
+          APK="${APK_CANDIDATES[0]}"
           mkdir -p "$GITHUB_WORKSPACE/dist"
           cp "$APK" "$GITHUB_WORKSPACE/dist/DevDexPlus-alpha-debug.apk"
           sha256sum "$GITHUB_WORKSPACE/dist/DevDexPlus-alpha-debug.apk" > "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
           echo "Built: $APK"
-          grep -R -n 'com.devboi.dex' "$GITHUB_WORKSPACE/lawnchair-src/build/intermediates/merged_manifest" || true
 
       - name: Upload DevDex Plus APK artifact
         uses: actions/upload-artifact@v4
