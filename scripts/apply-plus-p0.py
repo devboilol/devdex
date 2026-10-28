@@ -394,7 +394,8 @@ internal object DevDexPlusFreeformSetup {
             val stdout = process.inputStream.bufferedReader().use { it.readText().trim() }
             stderrReader.join(1000)
             runCatching { process.destroy() }
-            listOf(stdout, stderr).filter { it.isNotBlank() }.joinToString("\n").ifBlank { null }
+            val combined = listOf(stdout, stderr).filter { it.isNotBlank() }.joinToString("\n")
+            if (combined.isBlank()) null else combined
         } catch (e: Exception) {
             Log.w(TAG, "Shell command failed: $command", e)
             e.message
@@ -424,6 +425,11 @@ replace_once(
 
 # A manual setup action lets users retry after denying the Shizuku permission or
 # start Shizuku when its service is not currently running.
+replace_once(
+    "lawnchair/src/app/lawnchair/ui/preferences/destinations/HomeScreenPreferences.kt",
+    "import app.lawnchair.LawnchairApp\n",
+    "import app.lawnchair.DevDexPlusFreeformSetup\nimport app.lawnchair.LawnchairApp\n",
+)
 replace_once(
     "lawnchair/src/app/lawnchair/ui/preferences/destinations/HomeScreenPreferences.kt",
     """            SwitchPreference(
