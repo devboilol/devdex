@@ -103,19 +103,21 @@ text = text.replace('output.outputFileName.set("Lawnchair.', 'output.outputFileN
 # Exclude the legacy Kotlin Android Extensions runtime at the APK's dependency
 # resolution level. The conflicting module can arrive from transitive dependencies
 # other than DevDex, so excluding only inside devdexengine is insufficient.
-exclude_rule = """configurations.configureEach {
-    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-android-extensions-runtime'
+# Exclude old Kotlin Android Extensions runtime in every Android/utility project.
+# The APK is assembled from a multi-project graph, so apply the rule to all projects,
+# not only the application project and not only DevDex's library module.
+exclude_rule = """allprojects {
+    configurations.configureEach {
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-android-extensions-runtime'
+    }
 }
 
 """
-if "configurations.configureEach {\n    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-android-extensions-runtime'" not in text:
-    if "addFrameworkJar('framework-16.jar')\n\ndependencies {\n" not in text:
+if "exclude group: 'org.jetbrains.kotlin', module: 'kotlin-android-extensions-runtime'" not in text:
+    needle = "addFrameworkJar('framework-16.jar')\n\ndependencies {\n"
+    if needle not in text:
         raise SystemExit("Could not find root dependency block for duplicate-runtime exclusion")
-    text = text.replace(
-        "addFrameworkJar('framework-16.jar')\n\ndependencies {\n",
-        "addFrameworkJar('framework-16.jar')\n\n" + exclude_rule + "dependencies {\n",
-        1,
-    )
+    text = text.replace(needle, "addFrameworkJar('framework-16.jar')\n\n" + exclude_rule + "dependencies {\n", 1)
 build.write_text(text)
 
 manifest = root / "devdexengine/src/main/AndroidManifest.xml"
