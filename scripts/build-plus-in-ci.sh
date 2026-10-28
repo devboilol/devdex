@@ -11,8 +11,8 @@ python3 "$DEVDEX_DIR/scripts/apply-plus-p0.py" "$LAWNCHAIR_DIR"
 
 echo "== Import DevDex engine source as an Android library =="
 rm -rf devdexengine
-mkdir -p devdexengine
-cp -a "$DEVDEX_DIR/app/src/main" devdexengine/src
+mkdir -p devdexengine/src/main
+cp -a "$DEVDEX_DIR/app/src/main/." devdexengine/src/main/
 cat > devdexengine/build.gradle <<'GRADLE'
 plugins {
     id 'com.android.library'
