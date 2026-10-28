@@ -1,0 +1,65 @@
+name: Build DevDex Plus APK
+
+on:
+  push:
+    branches:
+      - 'devdex-plus/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-plus:
+    name: Integrate and build DevDex Plus
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout DevDex integration branch
+        uses: actions/checkout@v4
+        with:
+          path: devdex-src
+
+      - name: Checkout Lawnchair 16-dev source
+        uses: actions/checkout@v4
+        with:
+          repository: LawnchairLauncher/lawnchair
+          ref: 16-dev
+          path: lawnchair-src
+          submodules: recursive
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Integrate DevDex engine and apply launcher patch
+        run: bash "$GITHUB_WORKSPACE/devdex-src/scripts/build-plus-in-ci.sh" "$GITHUB_WORKSPACE/devdex-src" "$GITHUB_WORKSPACE/lawnchair-src"
+
+      - name: Build DevDex Plus debug APK
+        working-directory: lawnchair-src
+        run: ./gradlew assembleLawnWithQuickstepGithubDebug --stacktrace
+
+      - name: Package APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find "$GITHUB_WORKSPACE/lawnchair-src/build/outputs/apk" -type f -name '*.apk' -print -quit)"
+          test -n "$APK" || { echo "APK not found"; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/DevDexPlus-alpha-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/dist/DevDexPlus-alpha-debug.apk" > "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
+          echo "Built: $APK"
+          grep -R -n 'com.devboi.dex' "$GITHUB_WORKSPACE/lawnchair-src/build/intermediates/merged_manifest" || true
+
+      - name: Upload DevDex Plus APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevDexPlus-alpha-debug
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
