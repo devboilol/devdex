@@ -125,7 +125,7 @@ for path in src.rglob("*"):
         data = path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         continue
-    updated = re.sub(r"\bAppTheme\b", "DevDexAppTheme", data)
+    updated = data.replace("AppTheme", "DevDexAppTheme")
     if updated != data:
         path.write_text(updated, encoding="utf-8")
 
