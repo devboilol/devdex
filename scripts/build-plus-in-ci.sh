@@ -7,8 +7,7 @@ test -n "$DEVDEX_DIR" && test -n "$LAWNCHAIR_DIR"
 cd "$LAWNCHAIR_DIR"
 
 echo "== Apply Lawnchair P0 freeform launch integration =="
-git apply --check "$DEVDEX_DIR/patches/devdex-plus-lawnchair-p0.patch"
-git apply "$DEVDEX_DIR/patches/devdex-plus-lawnchair-p0.patch"
+python3 "$DEVDEX_DIR/scripts/apply-plus-p0.py" "$LAWNCHAIR_DIR"
 
 echo "== Import DevDex engine source as an Android library =="
 rm -rf devdexengine
