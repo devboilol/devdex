@@ -83,6 +83,10 @@ replace_once(
         dock.visibility = View.VISIBLE
 ''',
     '''    private fun hideForLawnchairHome() {
+        // Lawnchair now owns Home; keep the taskbar pinned over app windows,
+        // but explicitly hide it while the launcher surface is visible.
+        isPinned = true
+        pinBtn.setImageResource(R.drawable.ic_pin)
         devDexPlusHomeVisible = true
         dockHandler.removeCallbacksAndMessages(null)
         if (appMenuVisible) hideAppMenu()
