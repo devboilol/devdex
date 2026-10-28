@@ -30,13 +30,14 @@ DevDex keeps its own desktop model, dock, floating-window controls, task integra
 
 ## Stability boundaries
 
-The interface refresh must not change:
-- the `applicationId` (`com.youki.dex`) or stored preference keys;
-- window/task mapping and Shizuku/Root pathways;
-- dock service lifecycle, accessibility configuration, or widget persistence;
-- existing view IDs consumed by Kotlin unless those consumers are updated in the same change.
+The interface refresh must not change stored preference keys, window/task mapping, Shizuku/Root pathways, dock service lifecycle, accessibility configuration, widget persistence, or existing view IDs unless their consumers are updated in the same change.
 
-The legacy Java/Kotlin namespace is intentionally retained in this phase to preserve compatibility and upgrade installation. Removing that namespace requires a separate migration plan; it is not a branding-only change.
+## App identity migration
+
+- Starting with the next candidate, the installed Android `applicationId` changes from `com.youki.dex` to `com.devboi.dex`.
+- This is a new Android app identity, not an in-place upgrade of the older package. The old and new packages may coexist; Android will not automatically transfer app-private preferences, databases, permissions, or the selected default Home component.
+- Keep the Kotlin/Java source namespace as `com.youki.dex` for this migration. It is separate from the installed `applicationId`, and changing every source package is a larger refactor that should not be bundled into this change.
+- Do not claim old settings/data are preserved. Test the new package as a fresh install and keep the old installation until the user confirms the new build is usable.
 
 ## Device acceptance checklist
 
