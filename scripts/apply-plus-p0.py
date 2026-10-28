@@ -37,6 +37,12 @@ replace_once(
         defaultValue = false,
     )
 
+    /** One-time migration to default-enable Desktop Mode on existing installs. */
+    val devDexPlusDesktopModeMigrated = preference(
+        key = booleanPreferencesKey(name = "devdex_plus_desktop_mode_migrated"),
+        defaultValue = false,
+    )
+
     val hotseatQsbProvider = preference(""",
 )
 
