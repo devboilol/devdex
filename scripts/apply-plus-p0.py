@@ -31,6 +31,12 @@ replace_once(
         defaultValue = true,
     )
 
+    /** One-time initialization flag for Desktop Mode default. */
+    val devDexPlusDesktopModeInitialized = preference(
+        key = booleanPreferencesKey(name = "devdex_plus_desktop_mode_initialized"),
+        defaultValue = false,
+    )
+
     val hotseatQsbProvider = preference(""",
 )
 
