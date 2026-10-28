@@ -12,12 +12,14 @@ DevDex's custom Close / Resize / Opacity control group should decorate the main 
 - Keep a separate geometry-only list of visible application, system, input-method, and split-screen-divider windows. These surfaces can hide the main window's pill when they overlap it, but never receive controls themselves.
 - When a previously managed app window becomes fullscreen, preserve its controls only for that same Accessibility window ID. A different fullscreen window from the same package must not inherit the old window's controls.
 - Prefer hiding controls on ambiguous/system surfaces over placing Close or Resize over a permission prompt.
+- Window controls are a separate overlay, not a child view inside the third-party app. While at least one pill is active, poll bounds every 120 ms as a fallback for sparse OEM Accessibility events; after a bounds change is observed, temporarily poll at frame cadence (16 ms) for 450 ms after the last change. This is intended to reduce trailing while moving/resizing, not to guarantee pixel-perfect synchronization when the ROM reports window geometry late.
 
 ## Device acceptance checklist
 
 Test on the Redmi Pad SE 8.7 with the dock and Accessibility service enabled:
 
 1. Open a normal app in a freeform window. Exactly one control group should appear on the app's main window.
+2. Move and resize the freeform window repeatedly, including fast drags. The control group should track its bounds without persistent trailing; note any ROM-specific lag for follow-up.
 2. Open that app's menu, dropdown, confirmation dialog, and in-app popup. The popup should not receive a duplicate control group; the main window should retain its own controls.
 3. Trigger Android/HyperOS permission dialogs, share sheets, package installer prompts, notification shade, and other system UI surfaces. None should receive DevDex's Close/Resize controls.
 4. Open two independent freeform instances of the same app if that app supports them. Each independent top-level window should retain controls; nested dialogs should not.
