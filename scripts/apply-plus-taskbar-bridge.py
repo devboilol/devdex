@@ -255,6 +255,62 @@ if "openDevDexPlusDrawerIfRequested(intent)" not in data[data.find("override fun
         raise SystemExit("LawnchairLauncher onNewIntent end anchor missing")
     data = data.replace(new_intent_end, new_intent_end_new, 1)
 
+# 4. Migrate the new desktop-mode preference to enabled once for existing installs.
+preference_manager = root / "lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
+data = preference_manager.read_text(encoding="utf-8")
+if "devDexPlusDesktopModeMigrated" not in data:
+    anchor = """    /** One-time initialization flag for Desktop Mode default. */
+    val devDexPlusDesktopModeInitialized = preference(
+        key = booleanPreferencesKey(name = "devdex_plus_desktop_mode_initialized"),
+        defaultValue = false,
+    )
+"""
+    addition = anchor + """
+    /** One-time migration marker for enabling Desktop Mode on existing installs. */
+    val devDexPlusDesktopModeMigrated = preference(
+        key = booleanPreferencesKey(name = "devdex_plus_desktop_mode_migrated"),
+        defaultValue = false,
+    )
+"""
+    if anchor not in data:
+        raise SystemExit("Desktop Mode preference marker missing")
+    data = data.replace(anchor, addition, 1)
+    preference_manager.write_text(data, encoding="utf-8")
+
+lawnchair_app = root / "lawnchair/src/app/lawnchair/LawnchairApp.kt"
+data = lawnchair_app.read_text(encoding="utf-8")
+migration_method = """    private fun migrateDevDexPlusDesktopDefault() {
+        val manager = app.lawnchair.preferences2.PreferenceManager2.INSTANCE.get(this)
+        val migratedPref = manager.devDexPlusDesktopModeMigrated
+        val migrated = app.lawnchair.preferences2.PreferenceCacheExtensionsKt.firstCached(migratedPref, manager)
+        if (migrated) return
+
+        app.lawnchair.preferences2.PreferenceCacheExtensionsKt.set(
+            manager.devDexPlusDesktopMode,
+            true,
+            manager,
+        )
+        app.lawnchair.preferences2.PreferenceCacheExtensionsKt.set(
+            migratedPref,
+            true,
+            manager,
+        )
+    }
+
+"""
+if "private fun migrateDevDexPlusDesktopDefault()" not in data:
+    anchor = "    override fun onCreate() {\n"
+    if anchor not in data:
+        raise SystemExit("LawnchairApp onCreate anchor missing")
+    data = data.replace(anchor, migration_method + anchor, 1)
+call_anchor = """        super.onCreate()
+        instance = this
+"""
+if "migrateDevDexPlusDesktopDefault()" not in data[data.find("override fun onCreate"):data.find("fun hideClockInStatusBar")]:
+    if call_anchor not in data:
+        raise SystemExit("LawnchairApp onCreate body anchor missing")
+    data = data.replace(call_anchor, call_anchor + "        migrateDevDexPlusDesktopDefault()\n", 1)
+lawnchair_app.write_text(data, encoding="utf-8")
 resume_anchor = '''    override fun onResume() {
         super.onResume()
         restartIfPending()
