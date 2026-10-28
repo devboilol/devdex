@@ -28,7 +28,7 @@ replace_once(
     /** DevDex Plus: request freeform launches for ordinary app icons. */
     val devDexPlusDesktopMode = preference(
         key = booleanPreferencesKey(name = "devdex_plus_desktop_mode"),
-        defaultValue = false,
+        defaultValue = true,
     )
 
     val hotseatQsbProvider = preference(""",
@@ -53,7 +53,7 @@ if 'name="devdex_plus_desktop_mode"' not in data:
     strings.write_text(data.replace(
         "</resources>",
         """    <string name="devdex_plus_desktop_mode">DevDex Plus desktop mode</string>
-    <string name="devdex_plus_desktop_mode_description">Request floating windows when opening apps from Lawnchair. Requires freeform support from Android and your device firmware.</string>
+    <string name="devdex_plus_desktop_mode_description">Freeform window launches are enabled by default. If apps still open fullscreen, your Android firmware may block freeform mode.</string>
 </resources>""",
         1
     ), encoding="utf-8")
