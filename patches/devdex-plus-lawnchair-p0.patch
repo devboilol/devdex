@@ -52,7 +52,7 @@ diff --git a/quickstep/src/com/android/launcher3/uioverrides/QuickstepLauncher.j
  import static android.view.Display.DEFAULT_DISPLAY;
  import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_OPTIMIZE_MEASURE;
  import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_FOCUSED;
-@@ -97,5 +97,6 @@
+@@ -97,6 +97,7 @@
  import android.view.HapticFeedbackConstants;
  import android.view.KeyEvent;
  import android.view.View;
