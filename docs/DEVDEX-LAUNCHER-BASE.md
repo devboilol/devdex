@@ -1,6 +1,6 @@
 # DevDex Launcher Base Decision
 
-**Status:** Accepted; baseline build/runtime validation pending.
+**Status:** Minimal freeform launch prototype; CI and device validation pending.
 
 ## Decision
 
@@ -13,19 +13,21 @@ Use **Lawnchair 16** as the source-code foundation for DevDex Plus. Lawnchair is
 - Commit: `2d072998677ff198a0abc3f19c22af9ad32b5574`
 - Submodules: checked out recursively at the revisions pinned by that commit.
 - Build variant: `assembleLawnWithQuickstepGithubDebug`
+- Patch: [patch-lawnchair-freeform.py](../scripts/patch-lawnchair-freeform.py)
 - CI workflow: [build-lawnchair-baseline.yml](../.github/workflows/build-lawnchair-baseline.yml)
 
-The baseline workflow must build upstream source without DevDex patches. Its APK is a source/build artifact, not proof of runtime compatibility with the Redmi tablet.
+The patch touches only `QuickstepLauncher.getActivityLaunchOptions`: app icons and deep shortcuts request `WINDOWING_MODE_FREEFORM` with centered bounds at about 82% of display width and 78% of display height. Lawnchair's existing launch flow is retained. No DevDex Engine, Shizuku, overlay, custom title bar, or separate window manager is added. The generated APK proves compilation only, not runtime compatibility with the Redmi tablet.
 
 ## Promotion gate
 
-Do not integrate DevDex Engine, Shizuku, window management, or new freeform logic until the unmodified APK:
+Before considering this prototype usable, confirm the patched APK:
 
 1. Builds successfully in CI.
 2. Installs and starts on the Redmi Pad SE 8.7.
 3. Shows the home workspace and app drawer without a blank screen or startup crash.
-4. Can launch normal apps and return Home reliably.
-5. Survives rotation/orientation changes and a device reboot smoke test, as supported by the tablet firmware.
+4. Launches ordinary app icons and deep shortcuts into real freeform windows, not merely smaller/full-screen activities.
+5. Can switch between multiple apps, return Home, and launch an app fullscreen only if a later explicit setting is added.
+6. Survives rotation and a device reboot smoke test, as supported by the tablet firmware.
 
 Record device/OS version, APK SHA-256, and any Logcat crash output for that test.
 
@@ -33,6 +35,10 @@ Record device/OS version, APK SHA-256, and any Logcat crash output for that test
 
 - Xiaomi System Launcher is a reference only. Do not use its APK as the project base.
 - Keep the existing Lawnchair-plus-DevDex experiment and the Open Android DeX experiment separate from this baseline.
-- Make one narrowly scoped change per commit and run the baseline build after each change.
-- First test freeform behavior on the device/firmware. Then add it to the app-launch path. Integrate the existing DevDex Engine and Shizuku only after this passes.
+- Make one narrowly scoped change per commit and run the build after each change.
+- Freeform depends on HyperOS allowing Android's standard freeform windowing mode. If the firmware rejects launch mode/bounds, diagnose device configuration before adding other libraries or services.
 - Preserve upstream license notices and follow the applicable upstream license obligations when distributing derivatives.
+
+## Device test note
+
+Android's standard launcher options cannot create freeform support if the firmware does not expose it. Record the HyperOS/Android version and inspect `dumpsys activity` / `dumpsys window` after launching an app. Do not treat `setLaunchBounds()` alone as proof that an app is in freeform mode.
