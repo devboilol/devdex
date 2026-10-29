@@ -104,6 +104,48 @@ if "implementation project(':devdexengine')" not in build_text:
     build_text += "\n\ndependencies {\n    implementation project(':devdexengine')\n    implementation 'dev.rikka.shizuku:api:13.1.5'\n    implementation 'dev.rikka.shizuku:provider:13.1.5'\n}\n"
 build.write_text(build_text, encoding="utf-8")
 
+# The Android 16 standalone port compiles platform-hidden APIs in module-local
+# source sets. The root project's framework jar setup does not automatically
+# reach library Kotlin tasks such as :flags, so wire it in explicitly.
+flags_build = root / "flagslib/build.gradle"
+flags_text = flags_build.read_text(encoding="utf-8")
+dep_anchor = "    implementation(libs.annotation)\n"
+if "framework-16.jar" not in flags_text:
+    if dep_anchor not in flags_text:
+        raise SystemExit("Could not find :flags dependency insertion point")
+    flags_text = flags_text.replace(
+        dep_anchor,
+        dep_anchor + "    compileOnly files(rootProject.file('prebuilts/libs/framework-16.jar'))\n",
+        1,
+    )
+task_anchor = "tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach"
+if task_anchor not in flags_text:
+    flags_text += """
+\n// DevDex Plus: expose Android 16 hidden framework APIs to this Kotlin library.
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    libraries.from(files(rootProject.file('prebuilts/libs/framework-16.jar')))
+}
+tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
+    classpath = files(rootProject.file('prebuilts/libs/framework-16.jar'), classpath)
+}
+"""
+flags_build.write_text(flags_text, encoding="utf-8")
+
+# IconLoader references generated Launcher3 Flags from :flags; the upstream
+# Android 16 Gradle port omitted that module dependency.
+icon_build = root / "iconloaderlib/build.gradle.kts"
+icon_text = icon_build.read_text(encoding="utf-8")
+icon_anchor = "    implementation(libs.annotation)\n"
+if "implementation(project(\":flags\"))" not in icon_text:
+    if icon_anchor not in icon_text:
+        raise SystemExit("Could not find IconLoader dependency insertion point")
+    icon_text = icon_text.replace(
+        icon_anchor,
+        icon_anchor + "    implementation(project(\":flags\"))\n",
+        1,
+    )
+icon_build.write_text(icon_text, encoding="utf-8")
+
 # Rename the launcher shown in Android's Home-app chooser.
 strings = root / "res/values/strings.xml"
 strings_text = strings.read_text(encoding="utf-8")
