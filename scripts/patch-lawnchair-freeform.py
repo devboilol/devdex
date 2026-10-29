@@ -252,7 +252,7 @@ final class FreeformLaunchHelper {
     private static void runLaunch(LaunchRequest request, IFreeformShell shell) {
         // The service must not be allowed to consume the click forever.
         MAIN.postDelayed(() -> fallbackNormally(
-                request, "Timed out waiting for a visible freeform launch"), 5000);
+                request, "Timed out waiting for a visible freeform launch"), 9000);
         Thread thread = new Thread(() -> {
             try {
                 String result = shell.startFreeform(request.component, request.userId);
@@ -400,19 +400,28 @@ public final class FreeformShellService extends IFreeformShell.Stub {
             process = new ProcessBuilder("dumpsys", "activity", "activities")
                     .redirectErrorStream(true)
                     .start();
+            StringBuilder dump = new StringBuilder();
+            Process dumpProcess = process;
+            Thread dumpReader = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(dumpProcess.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        dump.append(line).append('\\n');
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Could not read activity dump", e);
+                }
+            }, "LawnchairFreeformDumpReader");
+            dumpReader.setDaemon(true);
+            dumpReader.start();
+
             if (!process.waitFor(3, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
+                dumpReader.join(300);
                 return "activity dump timed out";
             }
-
-            StringBuilder dump = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    dump.append(line).append('\\n');
-                }
-            }
+            dumpReader.join(500);
 
             int slash = component.indexOf('/');
             if (slash <= 0 || slash == component.length() - 1) {
