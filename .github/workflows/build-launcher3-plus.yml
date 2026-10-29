@@ -39,8 +39,10 @@ jobs:
           distribution: zulu
           java-version: '21'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
 
       - name: Integrate DevDex Engine and freeform launch path
         run: bash "$GITHUB_WORKSPACE/devdex-src/scripts/build-launcher3-plus-in-ci.sh" "$GITHUB_WORKSPACE/devdex-src" "$GITHUB_WORKSPACE/launcher3-src"
