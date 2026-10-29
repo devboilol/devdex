@@ -250,9 +250,15 @@ final class FreeformLaunchHelper {
     };
 
     private static void runLaunch(LaunchRequest request, IFreeformShell shell) {
+        // The service must not be allowed to consume the click forever.
+        MAIN.postDelayed(() -> fallbackNormally(
+                request, "Timed out waiting for a visible freeform launch"), 5000);
         Thread thread = new Thread(() -> {
             try {
                 String result = shell.startFreeform(request.component, request.userId);
+                if (request.completed.get()) {
+                    return;
+                }
                 String lower = result == null ? "" : result.toLowerCase(Locale.ROOT);
                 if (result == null || !lower.startsWith("exit=0") || lower.contains("error")
                         || lower.contains("exception") || lower.contains("permission denial")) {
@@ -281,7 +287,7 @@ final class FreeformLaunchHelper {
             Toast.makeText(request.launcher.getApplicationContext(),
                     "Freeform failed. Opening the app normally.", Toast.LENGTH_LONG).show();
             try {
-                request.launcher.startActivitySafely(request.view, request.intent, request.item);
+                request.launcher.startActivitySafely(null, request.intent, request.item);
             } catch (Exception e) {
                 Log.e(TAG, "Normal app launch fallback also failed", e);
             }
@@ -322,6 +328,8 @@ import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 /** Shizuku UserService. Executes only the validated am-start command prepared by the launcher. */
 public final class FreeformShellService extends IFreeformShell.Stub {
@@ -342,6 +350,11 @@ public final class FreeformShellService extends IFreeformShell.Stub {
                     Integer.toString(userId), "-n", component)
                     .redirectErrorStream(true)
                     .start();
+            if (!process.waitFor(4, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return "error: am start timed out";
+            }
+            int exitCode = process.exitValue();
             StringBuilder output = new StringBuilder();
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream()))) {
@@ -350,17 +363,89 @@ public final class FreeformShellService extends IFreeformShell.Stub {
                     output.append(line).append('\\n');
                 }
             }
-            int exitCode = process.waitFor();
-            String result = "exit=" + exitCode + " " + output;
             if (exitCode != 0) {
+                String result = "error: am start exit=" + exitCode + " " + output;
                 Log.e(TAG, result);
-            } else {
-                Log.d(TAG, result);
+                return result;
             }
+
+            String verification = verifyFreeformTask(component);
+            if (!verification.startsWith("verified:")) {
+                String result = "error: " + verification + "; am output=" + output;
+                Log.e(TAG, result);
+                return result;
+            }
+
+            String result = "exit=0 " + output + " " + verification;
+            Log.d(TAG, result);
             return result;
         } catch (Exception e) {
             Log.e(TAG, "Shell execution failed", e);
             return "exception: " + e.getClass().getSimpleName() + ": " + e.getMessage();
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
+        }
+    }
+
+    /**
+     * HyperOS may accept am start but leave the task fullscreen or hidden.
+     * Confirm the target appears in the activity dump near a freeform-mode marker;
+     * otherwise report failure so the launcher can open it normally.
+     */
+    private String verifyFreeformTask(String component) {
+        Process process = null;
+        try {
+            process = new ProcessBuilder("dumpsys", "activity", "activities")
+                    .redirectErrorStream(true)
+                    .start();
+            if (!process.waitFor(3, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return "activity dump timed out";
+            }
+
+            StringBuilder dump = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    dump.append(line).append('\\n');
+                }
+            }
+
+            int slash = component.indexOf('/');
+            if (slash <= 0 || slash == component.length() - 1) {
+                return "invalid target component";
+            }
+            String packageName = component.substring(0, slash);
+            String className = component.substring(slash + 1);
+            String expandedClass = className.startsWith(".")
+                    ? packageName + className
+                    : className;
+            String expandedComponent = packageName + "/" + expandedClass;
+            String dumpText = dump.toString().toLowerCase(Locale.ROOT);
+            int pos = dumpText.indexOf(component.toLowerCase(Locale.ROOT));
+            if (pos < 0) {
+                pos = dumpText.indexOf(expandedComponent.toLowerCase(Locale.ROOT));
+            }
+            if (pos < 0) {
+                return "target activity not found in activity dump";
+            }
+
+            int start = Math.max(0, pos - 3000);
+            int end = Math.min(dumpText.length(), pos + 3000);
+            String vicinity = dumpText.substring(start, end);
+            if (!vicinity.contains("freeform")
+                    && !vicinity.contains("windowingmode=5")
+                    && !vicinity.contains("windowingmode: 5")
+                    && !vicinity.contains("mwindowingmode=5")) {
+                return "target task not confirmed in freeform mode";
+            }
+            return "verified: target task is in freeform mode";
+        } catch (Exception e) {
+            Log.e(TAG, "Could not verify freeform task", e);
+            return "activity verification failed: " + e.getClass().getSimpleName();
         } finally {
             if (process != null) {
                 process.destroy();
