@@ -75,7 +75,6 @@ helper_file = root / "src/com/android/launcher3/touch/FreeformLaunchHelper.java"
 helper_file.parent.mkdir(parents=True, exist_ok=True)
 helper_file.write_text("""package com.android.launcher3.touch;
 
-import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -83,6 +82,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
+import com.android.launcher3.AbstractFloatingView;
+import com.android.launcher3.Launcher;
+import com.android.launcher3.LauncherState;
 import com.android.launcher3.model.data.ItemInfo;
 
 import java.io.BufferedReader;
@@ -103,7 +105,7 @@ final class FreeformLaunchHelper {
      * @return true when this click was consumed (freeform launch or permission prompt);
      *         false to continue Lawnchair's ordinary launch path.
      */
-    static boolean tryLaunchFreeform(Activity activity, Intent intent, ItemInfo item) {
+    static boolean tryLaunchFreeform(Launcher launcher, Intent intent, ItemInfo item) {
         if (intent == null || item == null
                 || item.itemType != com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPLICATION) {
             return false;
@@ -118,7 +120,7 @@ final class FreeformLaunchHelper {
             if (!Shizuku.pingBinder()) {
                 if (!sShizukuHintShown) {
                     sShizukuHintShown = true;
-                    toast(activity, "Start Shizuku to open apps in freeform windows. Launching normally for now.");
+                    toast(launcher, "Start Shizuku to open apps in freeform windows. Launching normally for now.");
                 }
                 return false;
             }
@@ -126,10 +128,10 @@ final class FreeformLaunchHelper {
             if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
                 if (!Shizuku.shouldShowRequestPermissionRationale()) {
                     Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
-                    toast(activity, "Grant Lawnchair permission in Shizuku, then tap the app again.");
+                    toast(launcher, "Grant Lawnchair permission in Shizuku, then tap the app again.");
                     return true;
                 }
-                toast(activity, "Allow Lawnchair in Shizuku to use freeform windows. Launching normally for now.");
+                toast(launcher, "Allow Lawnchair in Shizuku to use freeform windows. Launching normally for now.");
                 return false;
             }
 
@@ -142,6 +144,9 @@ final class FreeformLaunchHelper {
             int userId = item.user != null ? item.user.getIdentifier() : android.os.UserHandle.myUserId();
             String command = "am start --windowingMode 5 --user " + userId
                     + " -n " + target + " 2>&1";
+
+            AbstractFloatingView.closeAllOpenViews(launcher);
+            launcher.getStateManager().goToState(LauncherState.NORMAL);
 
             Thread thread = new Thread(() -> {
                 StringBuilder output = new StringBuilder();
@@ -163,7 +168,7 @@ final class FreeformLaunchHelper {
                 String result = output.toString();
                 String lower = result.toLowerCase(Locale.ROOT);
                 if (exitCode != 0 || lower.contains("error") || lower.contains("exception")) {
-                    toast(activity, "Freeform launch failed on this HyperOS build. See Logcat for details.");
+                    toast(launcher, "Freeform launch failed on this HyperOS build. See Logcat for details.");
                     android.util.Log.e("LawnchairFreeform",
                             "am start exit=" + exitCode + " output=" + result);
                 } else {
@@ -175,13 +180,13 @@ final class FreeformLaunchHelper {
             return true;
         } catch (Exception e) {
             android.util.Log.e("LawnchairFreeform", "Unable to request freeform launch", e);
-            toast(activity, "Freeform could not start. Launching normally.");
+            toast(launcher, "Freeform could not start. Launching normally.");
             return false;
         }
     }
 
-    private static void toast(Activity activity, String message) {
-        MAIN.post(() -> Toast.makeText(activity.getApplicationContext(), message, Toast.LENGTH_LONG).show());
+    private static void toast(Launcher launcher, String message) {
+        MAIN.post(() -> Toast.makeText(launcher.getApplicationContext(), message, Toast.LENGTH_LONG).show());
     }
 }
 """, encoding="utf-8")
