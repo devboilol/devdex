@@ -1,0 +1,66 @@
+name: Build Lawnchair 16 Source Baseline
+
+on:
+  push:
+    branches:
+      - devdex-plus/lawnchair-baseline
+    paths:
+      - '.github/workflows/build-lawnchair-baseline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-lawnchair-baseline:
+    name: Build unmodified Lawnchair 16
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout DevDex integration workspace
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Lawnchair 16 source
+        uses: actions/checkout@v4
+        with:
+          repository: LawnchairLauncher/lawnchair
+          ref: 2d072998677ff198a0abc3f19c22af9ad32b5574
+          path: lawnchair-src
+          submodules: recursive
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build upstream Lawnchair without DevDex patches
+        working-directory: lawnchair-src
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew assembleLawnWithQuickstepGithubDebug --stacktrace
+
+      - name: Package baseline APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find "$GITHUB_WORKSPACE/lawnchair-src/build/outputs/apk" -type f -name '*.apk' -print -quit)"
+          test -n "$APK" || { echo "::error::Lawnchair baseline APK not found."; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk" > "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
+          echo "Baseline APK: $GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk"
+          cat "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
+
+      - name: Upload Lawnchair baseline artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lawnchair16-source-baseline
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
