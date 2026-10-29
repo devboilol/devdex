@@ -102,18 +102,12 @@ if needle not in build_text:
 build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
 
 # This Android 16 port includes a wm_shared source module that depends on
-# non-SDK framework internals unavailable to ordinary Gradle module compilation.
-# Use the branch's prebuilt AOSP Shell shared library, matching the upstream
-# standalone-build strategy, instead of compiling that source module.
+# non-SDK framework internals unavailable to ordinary Gradle source compilation.
+# Replace that module with its checked-in prebuilts: retain the shared Java/Kotlin
+# jars already configured in the upstream build and add the desktop/AOSP variants.
 build_text = build_text.replace(
     "    implementation project(':WMShared')",
-    "    implementation files('prebuilts/libs/WindowManager-Shell-shared-AOSP.jar')",
-)
-build_text = build_text.replace(
-    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared.jar')\n", ""
-)
-build_text = build_text.replace(
-    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared_kotlin.jar')\n", ""
+    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared-desktopMode.jar')\\n    implementation files('prebuilts/libs/WindowManager-Shell-shared-AOSP.jar')",
 )
 
 if "implementation project(':devdexengine')" not in build_text:
