@@ -63,7 +63,7 @@ if "rikka.shizuku.ShizukuProvider" not in manifest:
         raise SystemExit("Could not uniquely find </application> in AndroidManifest-common.xml")
     provider = """        <provider
             android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="\\x24{applicationId}.shizuku"
+            android:authorities="\x24{applicationId}.shizuku"
             android:enabled="true"
             android:exported="true"
             android:multiprocess="false"
