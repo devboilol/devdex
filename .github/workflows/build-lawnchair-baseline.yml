@@ -1,4 +1,4 @@
-name: Build Lawnchair 16 Source Baseline
+name: Build Lawnchair 16 Freeform Prototype
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - devdex-plus/lawnchair-baseline
     paths:
       - '.github/workflows/build-lawnchair-baseline.yml'
+      - 'scripts/patch-lawnchair-freeform.py'
   workflow_dispatch:
 
 permissions:
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   build-lawnchair-baseline:
-    name: Build unmodified Lawnchair 16
+    name: Build Lawnchair 16 with freeform app launches
     runs-on: ubuntu-latest
     timeout-minutes: 70
     steps:
@@ -28,6 +29,9 @@ jobs:
           path: lawnchair-src
           submodules: recursive
 
+      - name: Apply minimal freeform app-launch patch
+        run: python3 "$GITHUB_WORKSPACE/scripts/patch-lawnchair-freeform.py" "$GITHUB_WORKSPACE/lawnchair-src"
+
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -37,7 +41,7 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build upstream Lawnchair without DevDex patches
+      - name: Build Lawnchair with freeform launch patch
         working-directory: lawnchair-src
         shell: bash
         run: |
@@ -50,17 +54,17 @@ jobs:
         run: |
           set -euo pipefail
           APK="$(find "$GITHUB_WORKSPACE/lawnchair-src/build/outputs/apk" -type f -name '*.apk' -print -quit)"
-          test -n "$APK" || { echo "::error::Lawnchair baseline APK not found."; exit 1; }
+          test -n "$APK" || { echo "::error::Lawnchair freeform prototype APK not found."; exit 1; }
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          cp "$APK" "$GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/Lawnchair16-Freeform-Prototype-debug.apk"
           sha256sum "$GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk" > "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
-          echo "Baseline APK: $GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk"
+          echo "Freeform prototype APK: $GITHUB_WORKSPACE/dist/Lawnchair16-source-baseline-debug.apk"
           cat "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
 
-      - name: Upload Lawnchair baseline artifacts
+      - name: Upload Lawnchair freeform prototype artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Lawnchair16-source-baseline
+          name: Lawnchair16-Freeform-Prototype
           path: dist/*
           if-no-files-found: error
           retention-days: 14
