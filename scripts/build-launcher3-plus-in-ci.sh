@@ -101,12 +101,13 @@ if needle not in build_text:
     raise SystemExit("Expected Launcher3 applicationId declaration was not found")
 build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
 
-// The pinned port appends framework-16.jar to Kotlin libraries by default. That
-// leaves public android.jar classes first, masking hidden nested classes such as
-// TextClock.ClockEventDelegate, WindowManager.ScreenshotSource and InternalInsetsInfo.
-// Make the framework jar the first Kotlin compiler library, matching newer upstream.
+# The pinned port appends framework-16.jar to Kotlin libraries by default. That
+# leaves public android.jar classes first, masking hidden nested classes such as
+# TextClock.ClockEventDelegate, WindowManager.ScreenshotSource and InternalInsetsInfo.
+# Move framework-16.jar ahead of the existing Kotlin compiler libraries.
 framework_order_old = "libraries.from(files(frameworkJar))"
-framework_order_new = "libraries.setFrom(files(frameworkJar, libraries))"
+framework_order_new = """def existingFrameworkLibraries = libraries.files
+libraries.setFrom(files(frameworkJar), files(existingFrameworkLibraries))"""
 if framework_order_old in build_text:
     build_text = build_text.replace(framework_order_old, framework_order_new, 1)
 elif framework_order_new not in build_text:
