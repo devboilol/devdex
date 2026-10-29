@@ -107,13 +107,13 @@ build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
 # for JavaCompile and KotlinCompile classpaths; invoke it for the combined app build.
 framework_call = "addFrameworkJar('framework-16.jar')"
 if framework_call not in build_text:
-    framework_anchor = "dependencies {\\n    implementation libs.androidx.appcompat\\n"
+    framework_anchor = "dependencies {\n    implementation libs.androidx.appcompat\n"
     if framework_anchor not in build_text:
         raise SystemExit("Could not find root AndroidX dependency block for framework classpath setup")
     build_text = build_text.replace(
         framework_anchor,
-        "// DevDex Plus: expose Android 16 hidden framework APIs to Launcher3/Quickstep.\\n"
-        + framework_call + "\\n\\n" + framework_anchor,
+        "// DevDex Plus: expose Android 16 hidden framework APIs to Launcher3/Quickstep.\n"
+        + framework_call + "\n\n" + framework_anchor,
         1,
     )
 
