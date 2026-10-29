@@ -16,7 +16,7 @@ Use **Lawnchair 16** as the source-code foundation for DevDex Plus. Lawnchair is
 - Patch: [patch-lawnchair-freeform.py](../scripts/patch-lawnchair-freeform.py)
 - CI workflow: [build-lawnchair-baseline.yml](../.github/workflows/build-lawnchair-baseline.yml)
 
-The patch touches only `QuickstepLauncher.getActivityLaunchOptions`: app icons and deep shortcuts request `WINDOWING_MODE_FREEFORM` with centered bounds at about 82% of display width and 78% of display height. Lawnchair's existing launch flow is retained. No DevDex Engine, Shizuku, overlay, custom title bar, or separate window manager is added. The generated APK proves compilation only, not runtime compatibility with the Redmi tablet.
+The patch changes Lawnchair's app-click path for ordinary app icons. Because HyperOS can block hidden `ActivityOptions.setLaunchWindowingMode()` calls made by regular apps, the prototype uses a small Shizuku shell bridge to run `am start --windowingMode 5` for the target component. Shizuku must be active and authorized; otherwise Lawnchair falls back to its normal launch path. This does not add the DevDex Engine, overlay, custom title bar, taskbar, or a separate window manager. HyperOS determines window size/position; this prototype does not control bounds.
 
 ## Promotion gate
 
@@ -25,7 +25,7 @@ Before considering this prototype usable, confirm the patched APK:
 1. Builds successfully in CI.
 2. Installs and starts on the Redmi Pad SE 8.7.
 3. Shows the home workspace and app drawer without a blank screen or startup crash.
-4. Launches ordinary app icons and deep shortcuts into real freeform windows, not merely smaller/full-screen activities.
+4. Launches ordinary app icons into real freeform windows, not merely smaller/full-screen activities. Deep shortcuts remain on Lawnchair's default path.
 5. Can switch between multiple apps, return Home, and launch an app fullscreen only if a later explicit setting is added.
 6. Survives rotation and a device reboot smoke test, as supported by the tablet firmware.
 
@@ -36,9 +36,9 @@ Record device/OS version, APK SHA-256, and any Logcat crash output for that test
 - Xiaomi System Launcher is a reference only. Do not use its APK as the project base.
 - Keep the existing Lawnchair-plus-DevDex experiment and the Open Android DeX experiment separate from this baseline.
 - Make one narrowly scoped change per commit and run the build after each change.
-- Freeform depends on HyperOS allowing Android's standard freeform windowing mode. If the firmware rejects launch mode/bounds, diagnose device configuration before adding other libraries or services.
+- Freeform depends on the firmware exposing the feature and Shizuku shell permission being granted. If the command is rejected, confirm the device's freeform support before adding any more code.
 - Preserve upstream license notices and follow the applicable upstream license obligations when distributing derivatives.
 
 ## Device test note
 
-Android's standard launcher options cannot create freeform support if the firmware does not expose it. Record the HyperOS/Android version and inspect `dumpsys activity` / `dumpsys window` after launching an app. Do not treat `setLaunchBounds()` alone as proof that an app is in freeform mode.
+Required setup: start Shizuku (wireless debugging is sufficient), grant its permission to the Lawnchair Freeform APK, then tap an ordinary app icon again. With non-root Shizuku, activation must be repeated after reboot. Freeform remains firmware-dependent. Record the HyperOS/Android version and inspect `dumpsys activity` / `dumpsys window` after launch; confirm the task reports freeform rather than fullscreen.
