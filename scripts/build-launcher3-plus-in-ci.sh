@@ -101,6 +101,22 @@ if needle not in build_text:
     raise SystemExit("Expected Launcher3 applicationId declaration was not found")
 build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
 
+# The stock Android SDK android.jar omits hidden framework types required by
+# Quickstep/KAPT (TextClock.ClockEventDelegate, ScreenshotSource, InternalInsetsInfo).
+# Launcher3 defines addFrameworkJar() to prepend framework-16.jar ahead of android.jar
+# for JavaCompile and KotlinCompile classpaths; invoke it for the combined app build.
+framework_call = "addFrameworkJar('framework-16.jar')"
+if framework_call not in build_text:
+    framework_anchor = "dependencies {\\n    implementation libs.androidx.appcompat\\n"
+    if framework_anchor not in build_text:
+        raise SystemExit("Could not find root AndroidX dependency block for framework classpath setup")
+    build_text = build_text.replace(
+        framework_anchor,
+        "// DevDex Plus: expose Android 16 hidden framework APIs to Launcher3/Quickstep.\\n"
+        + framework_call + "\\n\\n" + framework_anchor,
+        1,
+    )
+
 # The wm_shared source module depends on non-SDK framework internals and cannot
 # be compiled by this standalone Gradle build. The upstream root build already
 # includes its shared and Kotlin prebuilts, so do not add the overlapping
