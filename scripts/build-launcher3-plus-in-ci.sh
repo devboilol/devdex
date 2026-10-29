@@ -89,6 +89,13 @@ if "include ':devdexengine'" not in settings_text:
 # Build one installable application while retaining Launcher3's source namespace.
 build = root / "build.gradle"
 build_text = build.read_text(encoding="utf-8")
+# Kotlin serialization is a separate Gradle plugin artifact, not bundled into kotlin-gradle-plugin.
+serialization_classpath = "        classpath 'org.jetbrains.kotlin:kotlin-serialization:2.2.21'\\n"
+if serialization_classpath.strip() not in build_text:
+    plugin_anchor = "        classpath KOTLIN\\n"
+    if plugin_anchor not in build_text:
+        raise SystemExit("Could not find root Kotlin Gradle plugin classpath")
+    build_text = build_text.replace(plugin_anchor, plugin_anchor + serialization_classpath, 1)
 needle = "applicationId 'com.android.launcher3'"
 if needle not in build_text:
     raise SystemExit("Expected Launcher3 applicationId declaration was not found")
