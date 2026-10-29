@@ -101,13 +101,13 @@ if needle not in build_text:
     raise SystemExit("Expected Launcher3 applicationId declaration was not found")
 build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
 
-# This Android 16 port includes a wm_shared source module that depends on
-# non-SDK framework internals unavailable to ordinary Gradle source compilation.
-# Replace that module with its checked-in prebuilts: retain the shared Java/Kotlin
-# jars already configured in the upstream build and add the desktop/AOSP variants.
+# The wm_shared source module depends on non-SDK framework internals and cannot
+# be compiled by this standalone Gradle build. The upstream root build already
+# includes its shared and Kotlin prebuilts, so do not add the overlapping
+# desktopMode/AOSP variant jars or compile the WMShared source project.
 build_text = build_text.replace(
     "    implementation project(':WMShared')",
-    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared-desktopMode.jar')",
+    "",
 )
 
 if "implementation project(':devdexengine')" not in build_text:
