@@ -100,6 +100,22 @@ needle = "applicationId 'com.android.launcher3'"
 if needle not in build_text:
     raise SystemExit("Expected Launcher3 applicationId declaration was not found")
 build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
+
+# This Android 16 port includes a wm_shared source module that depends on
+# non-SDK framework internals unavailable to ordinary Gradle module compilation.
+# Use the branch's prebuilt AOSP Shell shared library, matching the upstream
+# standalone-build strategy, instead of compiling that source module.
+build_text = build_text.replace(
+    "    implementation project(':WMShared')",
+    "    implementation files('prebuilts/libs/WindowManager-Shell-shared-AOSP.jar')",
+)
+build_text = build_text.replace(
+    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared.jar')\n", ""
+)
+build_text = build_text.replace(
+    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared_kotlin.jar')\n", ""
+)
+
 if "implementation project(':devdexengine')" not in build_text:
     build_text += "\n\ndependencies {\n    implementation project(':devdexengine')\n    implementation 'dev.rikka.shizuku:api:13.1.5'\n    implementation 'dev.rikka.shizuku:provider:13.1.5'\n}\n"
 build.write_text(build_text, encoding="utf-8")
@@ -145,6 +161,27 @@ if "implementation(project(\":flags\"))" not in icon_text:
         1,
     )
 icon_build.write_text(icon_text, encoding="utf-8")
+
+# The AOSP 16 source set contains two newer archive-icon flag references that
+# are not defined by this branch's Android 16 flagslib. Preserve the Android 16
+# behavior: do not activate the newer archive restore/cache path.
+cache_logic = root / "iconloaderlib/src/com/android/launcher3/icons/cache/LauncherActivityCachingLogic.kt"
+cache_logic_text = cache_logic.read_text(encoding="utf-8")
+cache_logic_text = cache_logic_text.replace(
+    "import com.android.launcher3.Flags.useNewIconForArchivedApps\n", ""
+)
+cache_logic.write_text(cache_logic_text, encoding="utf-8")
+
+base_icon_cache = root / "iconloaderlib/src/com/android/launcher3/icons/cache/BaseIconCache.kt"
+base_icon_cache_text = base_icon_cache.read_text(encoding="utf-8")
+newer_archive_flag = "!(lookupFlags.skipAddToMemCache() && Flags.restoreArchivedAppIconsFromDb())"
+if newer_archive_flag in base_icon_cache_text:
+    base_icon_cache_text = base_icon_cache_text.replace(
+        newer_archive_flag,
+        "true /* Android 16: restoreArchivedAppIconsFromDb flag is not defined here. */",
+        1,
+    )
+base_icon_cache.write_text(base_icon_cache_text, encoding="utf-8")
 
 # Rename the launcher shown in Android's Home-app chooser.
 strings = root / "res/values/strings.xml"
