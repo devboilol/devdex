@@ -141,6 +141,19 @@ build_text = build_text.replace(
 
 if "implementation project(':devdexengine')" not in build_text:
     build_text += "\n\ndependencies {\n    implementation project(':devdexengine')\n    implementation 'dev.rikka.shizuku:api:13.1.5'\n    implementation 'dev.rikka.shizuku:provider:13.1.5'\n}\n"
+# Gradle 8.13 validates KAPT's access to the generated R.jar strictly.
+# Declare the Android resources task dependency to prevent an implicit-dependency failure.
+if "DEVDEX_PLUS_KAPT_RESOURCE_DEPENDENCY_FIX" not in build_text:
+    build_text += """
+ 
+// DEVDEX_PLUS_KAPT_RESOURCE_DEPENDENCY_FIX: keep Gradle 8.13 task validation deterministic.
+tasks.configureEach {
+    if (name == 'kaptAospWithQuickstepDebugKotlin') {
+        dependsOn('processAospWithQuickstepDebugResources')
+    }
+}
+"""
+
 build.write_text(build_text, encoding="utf-8")
 
 # The Android 16 standalone port compiles platform-hidden APIs in module-local
