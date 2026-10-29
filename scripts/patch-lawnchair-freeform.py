@@ -51,6 +51,11 @@ dependencies {
     implementation "dev.rikka.shizuku:api:13.1.5"
     implementation "dev.rikka.shizuku:provider:13.1.5"
 }
+
+// DEVDEX_FREEFORM_SHIZUKU_LICENSE: upstream Shizuku API artifacts declare this license URL.
+licensee {
+    allowUrl("https://github.com/RikkaApps/Shizuku-API/blob/master/LICENSE")
+}
 """
     build_file.write_text(build, encoding="utf-8")
 
