@@ -32,7 +32,7 @@ if "DEVDEX_FREEFORM_APP_LAUNCH" not in launcher:
             f"found {launcher.count(launch_anchor)}"
         )
     launch_patch = """        // DEVDEX_FREEFORM_APP_LAUNCH: request a shell-authorized freeform launch.
-        if (FreeformLaunchHelper.tryLaunchFreeform(launcher, intent, item)) {
+        if (FreeformLaunchHelper.tryLaunchFreeform(launcher, v, intent, item)) {
             return;
         }
 
@@ -90,6 +90,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.android.launcher3.AbstractFloatingView;
@@ -99,6 +100,7 @@ import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.model.data.ItemInfo;
 
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import rikka.shizuku.Shizuku;
 
@@ -116,7 +118,7 @@ final class FreeformLaunchHelper {
 
     private FreeformLaunchHelper() {}
 
-    static boolean tryLaunchFreeform(Launcher launcher, Intent intent, ItemInfo item) {
+    static boolean tryLaunchFreeform(Launcher launcher, View view, Intent intent, ItemInfo item) {
         if (intent == null || item == null
                 || item.itemType != LauncherSettings.Favorites.ITEM_TYPE_APPLICATION) {
             return false;
@@ -139,8 +141,8 @@ final class FreeformLaunchHelper {
             if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
                 if (!Shizuku.shouldShowRequestPermissionRationale()) {
                     Shizuku.requestPermission(PERMISSION_REQUEST_CODE);
-                    toast(launcher, "Grant Lawnchair permission in Shizuku, then tap the app again.");
-                    return true;
+                    toast(launcher, "Grant Lawnchair permission in Shizuku. Opening this app normally for now.");
+                    return false;
                 }
                 toast(launcher, "Allow Lawnchair in Shizuku to use freeform windows.");
                 return false;
@@ -153,7 +155,7 @@ final class FreeformLaunchHelper {
             }
 
             int userId = item.user != null ? item.user.getIdentifier() : 0;
-            LaunchRequest request = new LaunchRequest(launcher, target, userId);
+            LaunchRequest request = new LaunchRequest(launcher, view, intent, item, target, userId);
 
             AbstractFloatingView.closeAllOpenViews(launcher);
             launcher.getStateManager().goToState(LauncherState.NORMAL);
@@ -188,13 +190,27 @@ final class FreeformLaunchHelper {
                     .tag("lawnchair_freeform")
                     .daemon(false);
             Shizuku.bindUserService(args, CONNECTION);
+            // Do not leave an app icon click swallowed if the Shizuku service never connects.
+            MAIN.postDelayed(() -> {
+                LaunchRequest timedOut = null;
+                synchronized (LOCK) {
+                    if (sBinding && sPendingLaunch == request) {
+                        sBinding = false;
+                        sPendingLaunch = null;
+                        timedOut = request;
+                    }
+                }
+                if (timedOut != null) {
+                    fallbackNormally(timedOut, "Timed out waiting for Shizuku UserService");
+                }
+            }, 3000);
         } catch (Exception e) {
             synchronized (LOCK) {
                 sBinding = false;
                 sPendingLaunch = null;
             }
             Log.e(TAG, "Could not bind Shizuku UserService", e);
-            toast(launcher, "Could not start the freeform helper. Check Shizuku.");
+            fallbackNormally(request, "Could not bind Shizuku UserService");
         }
     }
 
@@ -209,16 +225,26 @@ final class FreeformLaunchHelper {
                 pending = sPendingLaunch;
                 sPendingLaunch = null;
             }
-            if (pending != null && shell != null) {
-                runLaunch(pending, shell);
+            if (pending != null) {
+                if (shell != null) {
+                    runLaunch(pending, shell);
+                } else {
+                    fallbackNormally(pending, "Shizuku UserService connected without a binder");
+                }
             }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             sShell = null;
+            LaunchRequest pending;
             synchronized (LOCK) {
                 sBinding = false;
+                pending = sPendingLaunch;
+                sPendingLaunch = null;
+            }
+            if (pending != null) {
+                fallbackNormally(pending, "Shizuku UserService disconnected before launch");
             }
         }
     };
@@ -228,21 +254,38 @@ final class FreeformLaunchHelper {
             try {
                 String result = shell.startFreeform(request.component, request.userId);
                 String lower = result == null ? "" : result.toLowerCase(Locale.ROOT);
-                if (result == null || lower.contains("error") || lower.contains("exception")
-                        || lower.contains("permission denial")) {
+                if (result == null || !lower.startsWith("exit=0") || lower.contains("error")
+                        || lower.contains("exception") || lower.contains("permission denial")) {
                     Log.e(TAG, "Freeform launch response: " + result);
-                    toast(request.launcher, "HyperOS rejected the freeform launch. See Logcat.");
+                    fallbackNormally(request, "Shell command did not launch the app: " + result);
                 } else {
+                    request.completed.compareAndSet(false, true);
                     Log.d(TAG, "Freeform launch response: " + result);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Freeform shell command failed", e);
-                toast(request.launcher, "Freeform launch failed. Check Shizuku and Logcat.");
+                fallbackNormally(request, "Freeform shell command failed");
                 sShell = null;
             }
         }, "LawnchairFreeformLaunch");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private static void fallbackNormally(LaunchRequest request, String reason) {
+        if (request == null || !request.completed.compareAndSet(false, true)) {
+            return;
+        }
+        Log.e(TAG, "Falling back to normal app launch: " + reason);
+        MAIN.post(() -> {
+            Toast.makeText(request.launcher.getApplicationContext(),
+                    "Freeform failed. Opening the app normally.", Toast.LENGTH_LONG).show();
+            try {
+                request.launcher.startActivitySafely(request.view, request.intent, request.item);
+            } catch (Exception e) {
+                Log.e(TAG, "Normal app launch fallback also failed", e);
+            }
+        });
     }
 
     private static void toast(Launcher launcher, String message) {
@@ -252,11 +295,19 @@ final class FreeformLaunchHelper {
 
     private static final class LaunchRequest {
         final Launcher launcher;
+        final View view;
+        final Intent intent;
+        final ItemInfo item;
         final String component;
         final int userId;
+        final AtomicBoolean completed = new AtomicBoolean(false);
 
-        LaunchRequest(Launcher launcher, String component, int userId) {
+        LaunchRequest(Launcher launcher, View view, Intent intent, ItemInfo item,
+                String component, int userId) {
             this.launcher = launcher;
+            this.view = view;
+            this.intent = intent;
+            this.item = item;
             this.component = component;
             this.userId = userId;
         }
