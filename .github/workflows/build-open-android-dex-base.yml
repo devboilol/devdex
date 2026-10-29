@@ -1,0 +1,70 @@
+name: Build Open Android DeX Upstream Baseline
+
+on:
+  push:
+    branches:
+      - devdex-plus/open-android-dex-base
+    paths:
+      - '.github/workflows/build-open-android-dex-base.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-upstream-launcher:
+    name: Build unmodified Open Android DeX launcher
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout DevDex integration workspace
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned Open Android DeX source
+        uses: actions/checkout@v4
+        with:
+          repository: dotnetdreamer/open-android-dex
+          ref: b757151fb177c9c9f2cb0e7e796b6ed41e89ade9
+          path: open-android-dex
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;35.0.0'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build upstream launcher unchanged
+        working-directory: open-android-dex/openandroiddex-launcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Package baseline APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find "$GITHUB_WORKSPACE/open-android-dex/openandroiddex-launcher/app/build/outputs/apk/debug" -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "$APK" || { echo "::error::Open Android DeX baseline APK not found."; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/OpenAndroidDeX-v0.3.26-baseline-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/dist/OpenAndroidDeX-v0.3.26-baseline-debug.apk" > "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
+          echo "Baseline APK: $GITHUB_WORKSPACE/dist/OpenAndroidDeX-v0.3.26-baseline-debug.apk"
+          cat "$GITHUB_WORKSPACE/dist/SHA256SUMS.txt"
+
+      - name: Upload baseline artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenAndroidDeX-v0.3.26-baseline
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
