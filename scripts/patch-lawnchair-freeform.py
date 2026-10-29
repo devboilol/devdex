@@ -63,7 +63,7 @@ if "rikka.shizuku.ShizukuProvider" not in manifest:
         raise SystemExit("Could not uniquely find </application> in AndroidManifest-common.xml")
     provider = """        <provider
             android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="\${applicationId}.shizuku"
+            android:authorities="\\x24{applicationId}.shizuku"
             android:enabled="true"
             android:exported="true"
             android:multiprocess="false"
@@ -75,7 +75,7 @@ aidl_file.parent.mkdir(parents=True, exist_ok=True)
 aidl_file.write_text("""package com.android.launcher3.touch;
 
 interface IFreeformShell {
-    String exec(String command);
+    String startFreeform(String component, int userId);
 }
 """, encoding="utf-8")
 
@@ -153,9 +153,7 @@ final class FreeformLaunchHelper {
             }
 
             int userId = item.user != null ? item.user.getIdentifier() : 0;
-            String command = "am start --windowingMode 5 --user " + userId
-                    + " -n " + target + " 2>&1";
-            LaunchRequest request = new LaunchRequest(launcher, command);
+            LaunchRequest request = new LaunchRequest(launcher, target, userId);
 
             AbstractFloatingView.closeAllOpenViews(launcher);
             launcher.getStateManager().goToState(LauncherState.NORMAL);
@@ -228,7 +226,7 @@ final class FreeformLaunchHelper {
     private static void runLaunch(LaunchRequest request, IFreeformShell shell) {
         Thread thread = new Thread(() -> {
             try {
-                String result = shell.exec(request.command);
+                String result = shell.startFreeform(request.component, request.userId);
                 String lower = result == null ? "" : result.toLowerCase(Locale.ROOT);
                 if (result == null || lower.contains("error") || lower.contains("exception")
                         || lower.contains("permission denial")) {
@@ -254,11 +252,13 @@ final class FreeformLaunchHelper {
 
     private static final class LaunchRequest {
         final Launcher launcher;
-        final String command;
+        final String component;
+        final int userId;
 
-        LaunchRequest(Launcher launcher, String command) {
+        LaunchRequest(Launcher launcher, String component, int userId) {
             this.launcher = launcher;
-            this.command = command;
+            this.component = component;
+            this.userId = userId;
         }
     }
 }
@@ -279,15 +279,16 @@ public final class FreeformShellService extends IFreeformShell.Stub {
     public FreeformShellService() {}
 
     @Override
-    public String exec(String command) {
-        if (command == null
-                || !command.matches("am start --windowingMode 5 --user [0-9]+ -n [A-Za-z0-9_.$/]+ 2>&1")) {
-            return "error: rejected command";
+    public String startFreeform(String component, int userId) {
+        if (component == null || !component.matches("[A-Za-z0-9_.$/]+") || userId < 0) {
+            return "error: rejected component or user";
         }
 
         Process process = null;
         try {
-            process = new ProcessBuilder("sh", "-c", command)
+            process = new ProcessBuilder(
+                    "am", "start", "--windowingMode", "5", "--user",
+                    Integer.toString(userId), "-n", component)
                     .redirectErrorStream(true)
                     .start();
             StringBuilder output = new StringBuilder();
