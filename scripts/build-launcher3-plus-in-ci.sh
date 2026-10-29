@@ -242,4 +242,4 @@ test -f devdexengine/src/main/java/com/youki/dex/services/PerfectServer.kt
 test -f devdexengine/src/main/java/com/youki/dex/utils/WindowControlsManager.kt
 
 echo "== Build Launcher3 Android 16-S2 + DevDex Window Engine =="
-gradle assembleAospWithQuickstepDebug -x lintVitalAospWithQuickstepDebug --stacktrace
+gradle assembleAospWithQuickstepDebug --stacktrace
