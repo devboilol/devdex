@@ -107,7 +107,7 @@ build_text = build_text.replace(needle, "applicationId 'com.devboi.dex'")
 # jars already configured in the upstream build and add the desktop/AOSP variants.
 build_text = build_text.replace(
     "    implementation project(':WMShared')",
-    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared-desktopMode.jar')\n    implementation files('prebuilts/libs/WindowManager-Shell-shared-AOSP.jar')",
+    "    withQuickstepImplementation files('prebuilts/libs/WindowManager-Shell-shared-desktopMode.jar')",
 )
 
 if "implementation project(':devdexengine')" not in build_text:
