@@ -141,7 +141,7 @@ final class FreeformLaunchHelper {
                 return false;
             }
 
-            int userId = item.user != null ? item.user.getIdentifier() : android.os.UserHandle.myUserId();
+            int userId = item.user != null ? item.user.getIdentifier() : 0;
             String command = "am start --windowingMode 5 --user " + userId
                     + " -n " + target + " 2>&1";
 
