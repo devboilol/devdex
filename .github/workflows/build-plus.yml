@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - 'devdex-plus/**'
+    # The AOSP Launcher3 prototype has its own CI; avoid rebuilding the
+    # unrelated Lawnchair integration when only prototype files change.
+    paths-ignore:
+      - 'scripts/build-launcher3-plus-in-ci.sh'
+      - '.github/workflows/build-launcher3-plus.yml'
+      - '.github/workflows/build-plus.yml'
+      - 'docs/LAUNCHER3_BASE_PROTOTYPE.md'
   workflow_dispatch:
 
 permissions:
