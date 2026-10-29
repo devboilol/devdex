@@ -162,7 +162,7 @@ final class FreeformLaunchHelper {
 
                 String result = output.toString();
                 String lower = result.toLowerCase(Locale.ROOT);
-                if (exitCode != 0 || lower.contains("error:") || lower.contains("exception")) {
+                if (exitCode != 0 || lower.contains("error") || lower.contains("exception")) {
                     toast(activity, "Freeform launch failed on this HyperOS build. See Logcat for details.");
                     android.util.Log.e("LawnchairFreeform",
                             "am start exit=" + exitCode + " output=" + result);
