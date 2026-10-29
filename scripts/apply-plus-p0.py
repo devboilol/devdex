@@ -401,18 +401,8 @@ internal object DevDexPlusFreeformSetup {
 }
 ''', encoding="utf-8")
 
-# Initialize in Lawnchair's Application process. Shizuku's provider multiprocess
-# support is configured separately, before providers are created, by the CI script.
-replace_once(
-    "lawnchair/src/app/lawnchair/LawnchairApp.kt",
-    """        super.onCreate()
-        instance = this
-""",
-    """        super.onCreate()
-        instance = this
-        DevDexPlusFreeformSetup.initialize(this)
-""",
-)
+# Keep Shizuku completely out of Lawnchair startup. DevDexPlusFreeformSetup
+# initializes lazily only after the user taps the explicit setup action.
 
 # A manual setup action lets users retry after denying the Shizuku permission or
 # start Shizuku when its service is not currently running.
