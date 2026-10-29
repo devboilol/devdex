@@ -49,7 +49,10 @@ jobs:
           grep -q 'prefs\[key\] = true' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/preferences2/PreferenceManager2.kt"
           grep -q 'setLaunchWindowingMode(WINDOWING_MODE_FREEFORM)' "$GITHUB_WORKSPACE/lawnchair-src/quickstep/src/com/android/launcher3/uioverrides/QuickstepLauncher.java"
           grep -q 'DevDexPlusFreeformSetup.request(context)' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/ui/preferences/destinations/HomeScreenPreferences.kt"
-          grep -q 'DevDexPlusFreeformSetup.initialize(this)' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/LawnchairApp.kt"
+          if grep -q 'DevDexPlusFreeformSetup.initialize(this)' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/LawnchairApp.kt"; then
+            echo "Shizuku freeform helper must not initialize during launcher startup"
+            exit 1
+          fi
           test -f "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/src/app/lawnchair/DevDexPlusFreeformSetup.kt"
           grep -q 'devdex_plus_freeform_setup' "$GITHUB_WORKSPACE/lawnchair-src/lawnchair/res/values/strings.xml"
 
